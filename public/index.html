@@ -13,26 +13,11 @@
       min-height: 100vh;
     }
 
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
 
-    h1 {
-      font-size: 28px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #fff;
-    }
+    h1 { font-size: 28px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+    .subtitle { color: #888; margin-bottom: 32px; font-size: 14px; }
 
-    .subtitle {
-      color: #888;
-      margin-bottom: 32px;
-      font-size: 14px;
-    }
-
-    /* Setup Panel */
     .setup-panel {
       background: #151515;
       border: 1px solid #2a2a2a;
@@ -48,297 +33,169 @@
       color: #ccc;
     }
 
-    .form-row {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .form-group {
-      flex: 1;
-    }
+    .form-row { display: flex; gap: 16px; margin-bottom: 16px; }
+    .form-group { flex: 1; }
 
     label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: #888;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      display: block; font-size: 12px; font-weight: 500; color: #888;
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
     input, select, textarea {
-      width: 100%;
-      background: #0a0a0a;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: #e0e0e0;
-      font-size: 14px;
-      font-family: inherit;
+      width: 100%; background: #0a0a0a; border: 1px solid #333;
+      border-radius: 8px; padding: 10px 12px; color: #e0e0e0;
+      font-size: 14px; font-family: inherit;
     }
-
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #4a9eff;
-    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #4a9eff; }
 
     textarea {
-      min-height: 200px;
-      resize: vertical;
+      min-height: 200px; resize: vertical;
       font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 13px;
-      line-height: 1.6;
+      font-size: 13px; line-height: 1.6;
     }
 
-    .image-upload {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
+    .image-upload { display: flex; align-items: center; gap: 16px; }
     .image-preview {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: #222;
-      border: 2px dashed #444;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      cursor: pointer;
-      flex-shrink: 0;
+      width: 80px; height: 80px; border-radius: 50%; background: #222;
+      border: 2px dashed #444; display: flex; align-items: center;
+      justify-content: center; overflow: hidden; cursor: pointer; flex-shrink: 0;
     }
-
-    .image-preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .image-preview span {
-      font-size: 24px;
-      color: #555;
-    }
+    .image-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .image-preview span { font-size: 24px; color: #555; }
 
     .btn {
-      background: #4a9eff;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 12px 24px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
+      background: #4a9eff; color: #fff; border: none; border-radius: 8px;
+      padding: 12px 24px; font-size: 14px; font-weight: 500; cursor: pointer;
       transition: background 0.2s;
     }
-
     .btn:hover { background: #3a8eef; }
-    .btn:disabled {
-      background: #333;
-      color: #666;
-      cursor: not-allowed;
-    }
+    .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .btn-generate { width: 100%; padding: 14px; font-size: 16px; margin-top: 8px; }
+    .btn-green { background: #22c55e; }
+    .btn-green:hover { background: #16a34a; }
 
-    .btn-generate {
-      width: 100%;
-      padding: 14px;
-      font-size: 16px;
-      margin-top: 8px;
-    }
-
-    /* Progress */
     .progress-bar {
-      width: 100%;
-      height: 4px;
-      background: #222;
-      border-radius: 2px;
-      margin-top: 16px;
-      display: none;
+      width: 100%; height: 4px; background: #222; border-radius: 2px;
+      margin-top: 16px; display: none;
     }
-
     .progress-bar.active { display: block; }
-
     .progress-fill {
-      height: 100%;
-      background: #4a9eff;
-      border-radius: 2px;
-      transition: width 0.3s;
-      width: 0%;
+      height: 100%; background: #4a9eff; border-radius: 2px;
+      transition: width 0.3s; width: 0%;
     }
 
     .status-text {
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-      text-align: center;
-      display: none;
+      font-size: 12px; color: #888; margin-top: 8px;
+      text-align: center; display: none;
     }
-
     .status-text.active { display: block; }
+
+    /* Steps indicator */
+    .steps {
+      display: flex; gap: 0; margin-bottom: 32px;
+    }
+    .step {
+      flex: 1; text-align: center; padding: 12px; font-size: 13px;
+      color: #555; border-bottom: 2px solid #222; font-weight: 500;
+    }
+    .step.active { color: #4a9eff; border-color: #4a9eff; }
+    .step.done { color: #22c55e; border-color: #22c55e; }
+    .step-num { font-size: 11px; display: block; margin-bottom: 2px; color: inherit; opacity: 0.7; }
 
     /* Chat View */
     .chat-view {
-      display: none;
-      background: #151515;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      overflow: hidden;
+      display: none; background: #151515; border: 1px solid #2a2a2a;
+      border-radius: 12px; overflow: hidden;
     }
-
     .chat-view.active { display: block; }
 
     .chat-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px 20px;
-      border-bottom: 1px solid #2a2a2a;
-      background: #1a1a1a;
+      display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+      border-bottom: 1px solid #2a2a2a; background: #1a1a1a;
     }
-
     .chat-header-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #333;
-      overflow: hidden;
+      width: 40px; height: 40px; border-radius: 50%; background: #333; overflow: hidden;
     }
+    .chat-header-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .chat-header-name { font-weight: 500; font-size: 16px; }
 
-    .chat-header-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .chat-header-name {
-      font-weight: 500;
-      font-size: 16px;
-    }
-
-    .chat-controls {
-      margin-left: auto;
-      display: flex;
-      gap: 8px;
-    }
-
+    .chat-controls { margin-left: auto; display: flex; gap: 8px; }
     .btn-small {
-      background: #2a2a2a;
-      color: #ccc;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 14px;
-      font-size: 13px;
-      cursor: pointer;
+      background: #2a2a2a; color: #ccc; border: none; border-radius: 6px;
+      padding: 6px 14px; font-size: 13px; cursor: pointer;
     }
-
     .btn-small:hover { background: #333; }
     .btn-small.active { background: #4a9eff; color: #fff; }
 
-    .chat-messages {
-      padding: 20px;
-      max-height: 500px;
-      overflow-y: auto;
-    }
+    .chat-messages { padding: 20px; max-height: 500px; overflow-y: auto; }
 
     .message {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-      align-items: flex-start;
-      opacity: 0;
-      transform: translateY(10px);
+      display: flex; gap: 10px; margin-bottom: 16px; align-items: flex-start;
+      opacity: 0; transform: translateY(10px);
       transition: opacity 0.3s, transform 0.3s;
     }
-
-    .message.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .message.user {
-      flex-direction: row-reverse;
-    }
+    .message.visible { opacity: 1; transform: translateY(0); }
+    .message.user { flex-direction: row-reverse; }
 
     .message-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: #333;
-      flex-shrink: 0;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      color: #888;
+      width: 32px; height: 32px; border-radius: 50%; background: #333;
+      flex-shrink: 0; overflow: hidden; display: flex; align-items: center;
+      justify-content: center; font-size: 14px; color: #888;
     }
-
-    .message-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .message-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
     .message-bubble {
-      max-width: 70%;
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: 14px;
-      line-height: 1.5;
+      max-width: 70%; padding: 10px 14px; border-radius: 16px;
+      font-size: 14px; line-height: 1.5;
     }
+    .message.character .message-bubble { background: #2a2a2a; border-bottom-left-radius: 4px; }
+    .message.user .message-bubble { background: #1a3a5c; border-bottom-right-radius: 4px; }
 
-    .message.character .message-bubble {
-      background: #2a2a2a;
-      border-bottom-left-radius: 4px;
+    .audio-indicator {
+      font-size: 11px; color: #666; margin-top: 4px; cursor: pointer;
     }
-
-    .message.user .message-bubble {
-      background: #1a3a5c;
-      border-bottom-right-radius: 4px;
-    }
-
-    .message .audio-indicator {
-      font-size: 11px;
-      color: #666;
-      margin-top: 4px;
-      cursor: pointer;
-    }
-
-    .message .audio-indicator:hover { color: #4a9eff; }
-    .message .audio-indicator.playing { color: #4a9eff; }
-
-    /* Back button */
-    .btn-back {
-      background: none;
-      border: 1px solid #333;
-      color: #888;
-      border-radius: 8px;
-      padding: 8px 16px;
-      font-size: 13px;
-      cursor: pointer;
-      margin-bottom: 16px;
-    }
-
-    .btn-back:hover { border-color: #555; color: #ccc; }
+    .audio-indicator:hover { color: #4a9eff; }
+    .audio-indicator.playing { color: #4a9eff; }
 
     .voice-preview {
-      display: inline-block;
-      margin-left: 8px;
-      cursor: pointer;
-      font-size: 12px;
-      color: #4a9eff;
+      display: inline-block; margin-left: 8px; cursor: pointer;
+      font-size: 12px; color: #4a9eff;
+    }
+    .voice-preview:hover { text-decoration: underline; }
+
+    /* Video panel */
+    .video-panel {
+      display: none; background: #151515; border: 1px solid #2a2a2a;
+      border-radius: 12px; padding: 24px; margin-top: 20px;
+    }
+    .video-panel.active { display: block; }
+    .video-panel h2 { font-size: 16px; font-weight: 500; margin-bottom: 16px; color: #ccc; }
+
+    .video-result {
+      margin-top: 16px; text-align: center;
+    }
+    .video-result video {
+      max-width: 100%; border-radius: 8px; background: #000;
     }
 
-    .voice-preview:hover { text-decoration: underline; }
+    .btn-back {
+      background: none; border: 1px solid #333; color: #888; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer; margin-bottom: 16px;
+    }
+    .btn-back:hover { border-color: #555; color: #ccc; }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Setup View -->
-    <div id="setupView">
+    <!-- Steps -->
+    <div class="steps">
+      <div class="step active" id="step1Label"><span class="step-num">Step 1</span>Script & Voices</div>
+      <div class="step" id="step2Label"><span class="step-num">Step 2</span>Preview Audio</div>
+      <div class="step" id="step3Label"><span class="step-num">Step 3</span>Generate Video</div>
+    </div>
+
+    <!-- Step 1: Script & Voice Setup -->
+    <div id="step1View">
       <h1>Golden Examples</h1>
       <p class="subtitle">Generate character voice conversations from scripts</p>
 
@@ -368,12 +225,12 @@
           <div class="form-group">
             <label>Character Voice</label>
             <select id="characterVoice"><option value="">Loading voices...</option></select>
-            <span class="voice-preview" id="previewCharacter" onclick="previewVoice('characterVoice')">Preview</span>
+            <span class="voice-preview" onclick="previewVoice('characterVoice')">Preview</span>
           </div>
           <div class="form-group">
             <label>User Voice</label>
             <select id="userVoice"><option value="">Loading voices...</option></select>
-            <span class="voice-preview" id="previewUser" onclick="previewVoice('userVoice')">Preview</span>
+            <span class="voice-preview" onclick="previewVoice('userVoice')">Preview</span>
           </div>
         </div>
       </div>
@@ -387,22 +244,43 @@ USER: Tell me about your favorite things.
 CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea>
       </div>
 
-      <button class="btn btn-generate" id="generateBtn" onclick="generate()">Generate Conversation</button>
+      <button class="btn btn-generate" id="generateBtn" onclick="generateAudio()">Generate Audio</button>
       <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
       <div class="status-text" id="statusText"></div>
     </div>
 
-    <!-- Chat View -->
-    <div id="chatView" class="chat-view">
-      <div class="chat-header">
-        <div class="chat-header-avatar" id="chatAvatar"></div>
-        <div class="chat-header-name" id="chatName"></div>
-        <div class="chat-controls">
-          <button class="btn-small" id="playAllBtn" onclick="playAll()">Play All</button>
-          <button class="btn-small" onclick="backToSetup()">Edit Script</button>
+    <!-- Step 2: Preview & Approve Audio -->
+    <div id="step2View" style="display:none">
+      <button class="btn-back" onclick="goToStep(1)">Back to Script</button>
+      <div id="chatView" class="chat-view active">
+        <div class="chat-header">
+          <div class="chat-header-avatar" id="chatAvatar"></div>
+          <div class="chat-header-name" id="chatName"></div>
+          <div class="chat-controls">
+            <button class="btn-small" id="playAllBtn" onclick="playAll()">Play All</button>
+          </div>
         </div>
+        <div class="chat-messages" id="chatMessages"></div>
       </div>
-      <div class="chat-messages" id="chatMessages"></div>
+      <button class="btn btn-generate btn-green" style="margin-top:20px" onclick="approveAudio()">
+        Approve & Continue to Video
+      </button>
+    </div>
+
+    <!-- Step 3: Generate Video -->
+    <div id="step3View" style="display:none">
+      <button class="btn-back" onclick="goToStep(2)">Back to Preview</button>
+      <div class="video-panel active">
+        <h2>Generate Video</h2>
+        <p style="color:#888; font-size:13px; margin-bottom:16px">
+          Your character image will be animated with the approved audio using HeyGen.
+          The character will appear to speak during their lines.
+        </p>
+        <button class="btn btn-generate" id="videoBtn" onclick="generateVideo()">Generate Video</button>
+        <div class="progress-bar" id="videoProgressBar"><div class="progress-fill" id="videoProgressFill"></div></div>
+        <div class="status-text" id="videoStatusText"></div>
+        <div class="video-result" id="videoResult"></div>
+      </div>
     </div>
   </div>
 
@@ -410,21 +288,21 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     let voices = [];
     let generatedLines = [];
     let characterImageUrl = null;
+    let characterImageFile = null;
     let currentAudio = null;
     let isPlayingAll = false;
+    let currentStep = 1;
+    let projectName = '';
 
-    // Load voices on startup
+    // ─── Load voices ───
     async function loadVoices() {
       try {
         const res = await fetch('/api/voices');
         voices = await res.json();
-
         const charSelect = document.getElementById('characterVoice');
         const userSelect = document.getElementById('userVoice');
-
         charSelect.innerHTML = '<option value="">Select a voice...</option>';
         userSelect.innerHTML = '<option value="">Select a voice...</option>';
-
         voices.forEach(v => {
           const opt = `<option value="${v.voice_id}">${v.name} (${v.gender}, ${v.accent})</option>`;
           charSelect.innerHTML += opt;
@@ -435,7 +313,6 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
     }
 
-    // Preview a voice
     function previewVoice(selectId) {
       const voiceId = document.getElementById(selectId).value;
       if (!voiceId) return;
@@ -447,11 +324,11 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
     }
 
-    // Handle image upload
+    // ─── Image upload ───
     document.getElementById('imageInput').addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
+      characterImageFile = file;
       const reader = new FileReader();
       reader.onload = (ev) => {
         document.getElementById('imagePreview').innerHTML = `<img src="${ev.target.result}">`;
@@ -460,25 +337,36 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       reader.readAsDataURL(file);
     });
 
-    // Parse script into lines
+    // ─── Parse script ───
     function parseScript(text) {
       const lines = [];
-      const rawLines = text.split('\n').filter(l => l.trim());
-      for (const line of rawLines) {
+      for (const line of text.split('\n').filter(l => l.trim())) {
         const match = line.match(/^(USER|CHARACTER)\s*:\s*(.+)/i);
         if (match) {
-          lines.push({
-            speaker: match[1].toUpperCase(),
-            text: match[2].trim()
-          });
+          lines.push({ speaker: match[1].toUpperCase(), text: match[2].trim() });
         }
       }
       return lines;
     }
 
-    // Generate audio
-    async function generate() {
-      const projectName = document.getElementById('projectName').value.trim();
+    // ─── Step navigation ───
+    function goToStep(step) {
+      currentStep = step;
+      document.getElementById('step1View').style.display = step === 1 ? 'block' : 'none';
+      document.getElementById('step2View').style.display = step === 2 ? 'block' : 'none';
+      document.getElementById('step3View').style.display = step === 3 ? 'block' : 'none';
+
+      document.getElementById('step1Label').className = `step ${step === 1 ? 'active' : step > 1 ? 'done' : ''}`;
+      document.getElementById('step2Label').className = `step ${step === 2 ? 'active' : step > 2 ? 'done' : ''}`;
+      document.getElementById('step3Label').className = `step ${step === 3 ? 'active' : ''}`;
+
+      if (currentAudio) currentAudio.pause();
+      isPlayingAll = false;
+    }
+
+    // ─── Step 1: Generate Audio ───
+    async function generateAudio() {
+      projectName = document.getElementById('projectName').value.trim();
       const characterVoiceId = document.getElementById('characterVoice').value;
       const userVoiceId = document.getElementById('userVoice').value;
       const scriptText = document.getElementById('scriptInput').value.trim();
@@ -503,22 +391,22 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       btn.textContent = 'Generating...';
       progressBar.classList.add('active');
       statusText.classList.add('active');
-      statusText.textContent = `Generating ${lines.length} audio clips...`;
+      statusText.textContent = `Generating ${lines.length} audio clips via ElevenLabs...`;
+      progressFill.style.width = '20%';
 
       // Upload image if provided
-      if (characterImageUrl) {
-        const imageInput = document.getElementById('imageInput');
-        const file = imageInput.files[0];
-        if (file) {
-          await fetch(`/api/upload-image?project=${encodeURIComponent(projectName)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': file.type },
-            body: file
-          });
-        }
+      if (characterImageFile) {
+        statusText.textContent = 'Uploading character image...';
+        await fetch(`/api/upload-image?project=${encodeURIComponent(projectName)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': characterImageFile.type },
+          body: characterImageFile
+        });
+        progressFill.style.width = '30%';
       }
 
       try {
+        statusText.textContent = `Generating ${lines.length} audio clips via ElevenLabs...`;
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -529,32 +417,32 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         if (!data.success) throw new Error(data.error);
 
         progressFill.style.width = '100%';
-        statusText.textContent = 'Done! Loading chat view...';
+        statusText.textContent = 'Audio generated! Loading preview...';
         generatedLines = data.lines;
 
-        setTimeout(() => showChatView(projectName), 500);
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = 'Generate Audio';
+          progressBar.classList.remove('active');
+          statusText.classList.remove('active');
+          showStep2();
+        }, 500);
       } catch (err) {
         alert('Generation failed: ' + err.message);
-      } finally {
         btn.disabled = false;
-        btn.textContent = 'Generate Conversation';
+        btn.textContent = 'Generate Audio';
         progressBar.classList.remove('active');
         statusText.classList.remove('active');
       }
     }
 
-    // Show chat view
-    function showChatView(projectName) {
-      document.getElementById('setupView').style.display = 'none';
-      const chatView = document.getElementById('chatView');
-      chatView.classList.add('active');
+    // ─── Step 2: Preview chat ───
+    function showStep2() {
+      goToStep(2);
 
       document.getElementById('chatName').textContent = projectName.replace(/_/g, ' ');
-
       const avatarEl = document.getElementById('chatAvatar');
-      if (characterImageUrl) {
-        avatarEl.innerHTML = `<img src="${characterImageUrl}">`;
-      }
+      if (characterImageUrl) avatarEl.innerHTML = `<img src="${characterImageUrl}">`;
 
       const messagesEl = document.getElementById('chatMessages');
       messagesEl.innerHTML = '';
@@ -569,49 +457,45 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
               : line.speaker === 'CHARACTER' ? 'C' : 'U'}
           </div>
           <div>
-            <div class="message-bubble">${line.text}</div>
-            <div class="audio-indicator" data-index="${i}" onclick="playLine(${i})">
-              ▶ Play audio
-            </div>
+            <div class="message-bubble">${escapeHtml(line.text)}</div>
+            <div class="audio-indicator" data-index="${i}" onclick="playLine(${i})">Play audio</div>
           </div>
         `;
         messagesEl.appendChild(msgEl);
-
-        // Animate in with delay
         setTimeout(() => msgEl.classList.add('visible'), i * 100);
       });
     }
 
-    // Play a single line
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
     function playLine(index) {
       if (currentAudio) {
         currentAudio.pause();
         document.querySelectorAll('.audio-indicator').forEach(el => {
           el.classList.remove('playing');
-          el.textContent = '▶ Play audio';
+          el.textContent = 'Play audio';
         });
       }
 
       const line = generatedLines[index];
       currentAudio = new Audio(line.audioUrl);
-
       const indicator = document.querySelector(`.audio-indicator[data-index="${index}"]`);
       indicator.classList.add('playing');
-      indicator.textContent = '◼ Playing...';
-
+      indicator.textContent = 'Playing...';
       currentAudio.onended = () => {
         indicator.classList.remove('playing');
-        indicator.textContent = '▶ Play audio';
+        indicator.textContent = 'Play audio';
       };
-
       currentAudio.play();
       return currentAudio;
     }
 
-    // Play all lines sequentially
     async function playAll() {
       const btn = document.getElementById('playAllBtn');
-
       if (isPlayingAll) {
         isPlayingAll = false;
         if (currentAudio) currentAudio.pause();
@@ -619,7 +503,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         btn.textContent = 'Play All';
         document.querySelectorAll('.audio-indicator').forEach(el => {
           el.classList.remove('playing');
-          el.textContent = '▶ Play audio';
+          el.textContent = 'Play audio';
         });
         return;
       }
@@ -630,13 +514,12 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
       for (let i = 0; i < generatedLines.length; i++) {
         if (!isPlayingAll) break;
-
         const audio = playLine(i);
         await new Promise(resolve => {
           audio.onended = () => {
             const indicator = document.querySelector(`.audio-indicator[data-index="${i}"]`);
             indicator.classList.remove('playing');
-            indicator.textContent = '▶ Play audio';
+            indicator.textContent = 'Play audio';
             resolve();
           };
         });
@@ -647,11 +530,134 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       btn.textContent = 'Play All';
     }
 
-    function backToSetup() {
-      document.getElementById('setupView').style.display = 'block';
-      document.getElementById('chatView').classList.remove('active');
-      if (currentAudio) currentAudio.pause();
-      isPlayingAll = false;
+    function approveAudio() {
+      goToStep(3);
+    }
+
+    // ─── Step 3: Generate Video ───
+    async function generateVideo() {
+      const btn = document.getElementById('videoBtn');
+      const progressBar = document.getElementById('videoProgressBar');
+      const progressFill = document.getElementById('videoProgressFill');
+      const statusText = document.getElementById('videoStatusText');
+      const resultEl = document.getElementById('videoResult');
+
+      btn.disabled = true;
+      btn.textContent = 'Uploading to HeyGen...';
+      progressBar.classList.add('active');
+      statusText.classList.add('active');
+      progressFill.style.width = '10%';
+
+      try {
+        // Step 3a: Upload character image to HeyGen
+        statusText.textContent = 'Uploading character image to HeyGen...';
+        if (!characterImageFile) {
+          throw new Error('No character image uploaded. Go back and add one.');
+        }
+
+        const imageBuffer = await characterImageFile.arrayBuffer();
+        const uploadRes = await fetch(`/api/heygen/upload?content_type=${characterImageFile.type}`, {
+          method: 'POST',
+          headers: { 'Content-Type': characterImageFile.type },
+          body: imageBuffer
+        });
+        const uploadData = await uploadRes.json();
+
+        if (!uploadData.data?.image_key) {
+          throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
+        }
+
+        progressFill.style.width = '25%';
+
+        // Step 3b: Create photo avatar
+        statusText.textContent = 'Creating photo avatar...';
+        const avatarRes = await fetch('/api/heygen/create-avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageKey: uploadData.data.image_key })
+        });
+        const avatarData = await avatarRes.json();
+        const photoAvatarId = avatarData.data?.photo_avatar_id || avatarData.data?.id;
+
+        if (!photoAvatarId) {
+          // Fallback: check talking photos list
+          statusText.textContent = 'Looking up photo avatar...';
+          const listRes = await fetch('/api/heygen/talking-photos');
+          const listData = await listRes.json();
+          const photos = listData.data || [];
+          if (photos.length === 0) {
+            throw new Error('Could not create photo avatar: ' + JSON.stringify(avatarData));
+          }
+          // Use the most recently added one
+          var finalAvatarId = photos[photos.length - 1].id;
+        } else {
+          var finalAvatarId = photoAvatarId;
+        }
+
+        progressFill.style.width = '40%';
+
+        // Step 3c: Generate video
+        statusText.textContent = 'Generating video (this may take a few minutes)...';
+        const videoRes = await fetch('/api/heygen/generate-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectName, photoAvatarId: finalAvatarId })
+        });
+        const videoData = await videoRes.json();
+        const videoId = videoData.data?.video_id;
+
+        if (!videoId) {
+          throw new Error('Video generation failed: ' + JSON.stringify(videoData));
+        }
+
+        progressFill.style.width = '50%';
+
+        // Step 3d: Poll for completion
+        statusText.textContent = 'Video is being generated...';
+        const videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
+
+        progressFill.style.width = '100%';
+        statusText.textContent = 'Video ready!';
+        btn.textContent = 'Video Generated';
+
+        resultEl.innerHTML = `
+          <video controls autoplay style="margin-top:16px">
+            <source src="${videoUrl}" type="video/mp4">
+          </video>
+          <p style="margin-top:12px">
+            <a href="${videoUrl}" target="_blank" style="color:#4a9eff; text-decoration:none">
+              Download Video
+            </a>
+          </p>
+        `;
+      } catch (err) {
+        alert('Video generation failed: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Generate Video';
+        progressBar.classList.remove('active');
+        statusText.classList.remove('active');
+      }
+    }
+
+    async function pollVideoStatus(videoId, progressFill, statusText) {
+      let progress = 50;
+      while (true) {
+        await new Promise(r => setTimeout(r, 5000));
+
+        const res = await fetch(`/api/heygen/video-status?video_id=${videoId}`);
+        const data = await res.json();
+        const status = data.data?.status;
+
+        if (status === 'completed') {
+          return data.data.video_url;
+        } else if (status === 'failed') {
+          throw new Error('Video generation failed on HeyGen side: ' + (data.data?.error || 'unknown'));
+        }
+
+        progress = Math.min(progress + 5, 95);
+        progressFill.style.width = progress + '%';
+        statusText.textContent = `Video is ${status || 'processing'}... (${Math.round(progress)}%)`;
+      }
     }
 
     loadVoices();
