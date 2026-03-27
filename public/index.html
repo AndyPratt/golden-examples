@@ -19,19 +19,10 @@
     .subtitle { color: #888; margin-bottom: 32px; font-size: 14px; }
 
     .setup-panel {
-      background: #151515;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
+      background: #151515; border: 1px solid #2a2a2a;
+      border-radius: 12px; padding: 24px; margin-bottom: 20px;
     }
-
-    .setup-panel h2 {
-      font-size: 16px;
-      font-weight: 500;
-      margin-bottom: 16px;
-      color: #ccc;
-    }
+    .setup-panel h2 { font-size: 16px; font-weight: 500; margin-bottom: 16px; color: #ccc; }
 
     .form-row { display: flex; gap: 16px; margin-bottom: 16px; }
     .form-group { flex: 1; }
@@ -90,10 +81,7 @@
     }
     .status-text.active { display: block; }
 
-    /* Steps indicator */
-    .steps {
-      display: flex; gap: 0; margin-bottom: 32px;
-    }
+    .steps { display: flex; gap: 0; margin-bottom: 32px; }
     .step {
       flex: 1; text-align: center; padding: 12px; font-size: 13px;
       color: #555; border-bottom: 2px solid #222; font-weight: 500;
@@ -102,7 +90,6 @@
     .step.done { color: #22c55e; border-color: #22c55e; }
     .step-num { font-size: 11px; display: block; margin-bottom: 2px; color: inherit; opacity: 0.7; }
 
-    /* Chat View */
     .chat-view {
       display: none; background: #151515; border: 1px solid #2a2a2a;
       border-radius: 12px; overflow: hidden;
@@ -151,9 +138,7 @@
     .message.character .message-bubble { background: #2a2a2a; border-bottom-left-radius: 4px; }
     .message.user .message-bubble { background: #1a3a5c; border-bottom-right-radius: 4px; }
 
-    .audio-indicator {
-      font-size: 11px; color: #666; margin-top: 4px; cursor: pointer;
-    }
+    .audio-indicator { font-size: 11px; color: #666; margin-top: 4px; cursor: pointer; }
     .audio-indicator:hover { color: #4a9eff; }
     .audio-indicator.playing { color: #4a9eff; }
 
@@ -163,7 +148,6 @@
     }
     .voice-preview:hover { text-decoration: underline; }
 
-    /* Video panel */
     .video-panel {
       display: none; background: #151515; border: 1px solid #2a2a2a;
       border-radius: 12px; padding: 24px; margin-top: 20px;
@@ -171,12 +155,8 @@
     .video-panel.active { display: block; }
     .video-panel h2 { font-size: 16px; font-weight: 500; margin-bottom: 16px; color: #ccc; }
 
-    .video-result {
-      margin-top: 16px; text-align: center;
-    }
-    .video-result video {
-      max-width: 100%; border-radius: 8px; background: #000;
-    }
+    .video-result { margin-top: 16px; text-align: center; }
+    .video-result video { max-width: 100%; border-radius: 8px; background: #000; }
 
     .btn-back {
       background: none; border: 1px solid #333; color: #888; border-radius: 8px;
@@ -187,14 +167,13 @@
 </head>
 <body>
   <div class="container">
-    <!-- Steps -->
     <div class="steps">
       <div class="step active" id="step1Label"><span class="step-num">Step 1</span>Script & Voices</div>
       <div class="step" id="step2Label"><span class="step-num">Step 2</span>Preview Audio</div>
       <div class="step" id="step3Label"><span class="step-num">Step 3</span>Generate Video</div>
     </div>
 
-    <!-- Step 1: Script & Voice Setup -->
+    <!-- Step 1 -->
     <div id="step1View">
       <h1>Golden Examples</h1>
       <p class="subtitle">Generate character voice conversations from scripts</p>
@@ -249,7 +228,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       <div class="status-text" id="statusText"></div>
     </div>
 
-    <!-- Step 2: Preview & Approve Audio -->
+    <!-- Step 2 -->
     <div id="step2View" style="display:none">
       <button class="btn-back" onclick="goToStep(1)">Back to Script</button>
       <div id="chatView" class="chat-view active">
@@ -267,14 +246,14 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       </button>
     </div>
 
-    <!-- Step 3: Generate Video -->
+    <!-- Step 3 -->
     <div id="step3View" style="display:none">
       <button class="btn-back" onclick="goToStep(2)">Back to Preview</button>
       <div class="video-panel active">
         <h2>Generate Video</h2>
         <p style="color:#888; font-size:13px; margin-bottom:16px">
           Your character image will be animated with the approved audio using HeyGen.
-          The character will appear to speak during their lines.
+          The character will appear to speak during their lines, and listen during user lines.
         </p>
         <button class="btn btn-generate" id="videoBtn" onclick="generateVideo()">Generate Video</button>
         <div class="progress-bar" id="videoProgressBar"><div class="progress-fill" id="videoProgressFill"></div></div>
@@ -286,12 +265,11 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
   <script>
     let voices = [];
-    let generatedLines = [];
+    let generatedLines = []; // { speaker, text, audioBase64, audioDataUrl }
     let characterImageUrl = null;
     let characterImageFile = null;
     let currentAudio = null;
     let isPlayingAll = false;
-    let currentStep = 1;
     let projectName = '';
 
     // ─── Load voices ───
@@ -337,7 +315,6 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       reader.readAsDataURL(file);
     });
 
-    // ─── Parse script ───
     function parseScript(text) {
       const lines = [];
       for (const line of text.split('\n').filter(l => l.trim())) {
@@ -351,20 +328,17 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
     // ─── Step navigation ───
     function goToStep(step) {
-      currentStep = step;
       document.getElementById('step1View').style.display = step === 1 ? 'block' : 'none';
       document.getElementById('step2View').style.display = step === 2 ? 'block' : 'none';
       document.getElementById('step3View').style.display = step === 3 ? 'block' : 'none';
-
       document.getElementById('step1Label').className = `step ${step === 1 ? 'active' : step > 1 ? 'done' : ''}`;
       document.getElementById('step2Label').className = `step ${step === 2 ? 'active' : step > 2 ? 'done' : ''}`;
       document.getElementById('step3Label').className = `step ${step === 3 ? 'active' : ''}`;
-
       if (currentAudio) currentAudio.pause();
       isPlayingAll = false;
     }
 
-    // ─── Step 1: Generate Audio ───
+    // ─── Step 1: Generate Audio (line by line via /api/tts) ───
     async function generateAudio() {
       projectName = document.getElementById('projectName').value.trim();
       const characterVoiceId = document.getElementById('characterVoice').value;
@@ -391,34 +365,35 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       btn.textContent = 'Generating...';
       progressBar.classList.add('active');
       statusText.classList.add('active');
-      statusText.textContent = `Generating ${lines.length} audio clips via ElevenLabs...`;
-      progressFill.style.width = '20%';
-
-      // Upload image if provided
-      if (characterImageFile) {
-        statusText.textContent = 'Uploading character image...';
-        await fetch(`/api/upload-image?project=${encodeURIComponent(projectName)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': characterImageFile.type },
-          body: characterImageFile
-        });
-        progressFill.style.width = '30%';
-      }
+      generatedLines = [];
 
       try {
-        statusText.textContent = `Generating ${lines.length} audio clips via ElevenLabs...`;
-        const res = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lines, characterVoiceId, userVoiceId, projectName })
-        });
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const voiceId = line.speaker === 'CHARACTER' ? characterVoiceId : userVoiceId;
+          const pct = Math.round(((i + 1) / lines.length) * 100);
+          statusText.textContent = `Generating line ${i + 1} of ${lines.length}...`;
+          progressFill.style.width = pct + '%';
 
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
+          const res = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ voiceId, text: line.text })
+          });
+
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          generatedLines.push({
+            speaker: line.speaker,
+            text: line.text,
+            audioBase64: data.audio,
+            audioDataUrl: `data:audio/mpeg;base64,${data.audio}`
+          });
+        }
 
         progressFill.style.width = '100%';
         statusText.textContent = 'Audio generated! Loading preview...';
-        generatedLines = data.lines;
 
         setTimeout(() => {
           btn.disabled = false;
@@ -436,10 +411,9 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
     }
 
-    // ─── Step 2: Preview chat ───
+    // ─── Step 2: Preview ───
     function showStep2() {
       goToStep(2);
-
       document.getElementById('chatName').textContent = projectName.replace(/_/g, ' ');
       const avatarEl = document.getElementById('chatAvatar');
       if (characterImageUrl) avatarEl.innerHTML = `<img src="${characterImageUrl}">`;
@@ -482,7 +456,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
 
       const line = generatedLines[index];
-      currentAudio = new Audio(line.audioUrl);
+      currentAudio = new Audio(line.audioDataUrl);
       const indicator = document.querySelector(`.audio-indicator[data-index="${index}"]`);
       indicator.classList.add('playing');
       indicator.textContent = 'Playing...';
@@ -530,9 +504,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       btn.textContent = 'Play All';
     }
 
-    function approveAudio() {
-      goToStep(3);
-    }
+    function approveAudio() { goToStep(3); }
 
     // ─── Step 3: Generate Video ───
     async function generateVideo() {
@@ -546,19 +518,18 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       btn.textContent = 'Uploading to HeyGen...';
       progressBar.classList.add('active');
       statusText.classList.add('active');
-      progressFill.style.width = '10%';
+      progressFill.style.width = '5%';
 
       try {
-        // Step 3a: Upload character image to HeyGen
-        statusText.textContent = 'Uploading character image to HeyGen...';
+        // 3a: Upload character image to HeyGen
         if (!characterImageFile) {
           throw new Error('No character image uploaded. Go back and add one.');
         }
 
+        statusText.textContent = 'Uploading character image to HeyGen...';
         const imageBuffer = await characterImageFile.arrayBuffer();
-        const uploadRes = await fetch(`/api/heygen/upload?content_type=${characterImageFile.type}`, {
+        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(characterImageFile.type)}`, {
           method: 'POST',
-          headers: { 'Content-Type': characterImageFile.type },
           body: imageBuffer
         });
         const uploadData = await uploadRes.json();
@@ -567,9 +538,9 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
         }
 
-        progressFill.style.width = '25%';
+        progressFill.style.width = '15%';
 
-        // Step 3b: Create photo avatar
+        // 3b: Create photo avatar
         statusText.textContent = 'Creating photo avatar...';
         const avatarRes = await fetch('/api/heygen/create-avatar', {
           method: 'POST',
@@ -577,10 +548,9 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           body: JSON.stringify({ imageKey: uploadData.data.image_key })
         });
         const avatarData = await avatarRes.json();
-        const photoAvatarId = avatarData.data?.photo_avatar_id || avatarData.data?.id;
+        let photoAvatarId = avatarData.data?.photo_avatar_id || avatarData.data?.id;
 
         if (!photoAvatarId) {
-          // Fallback: check talking photos list
           statusText.textContent = 'Looking up photo avatar...';
           const listRes = await fetch('/api/heygen/talking-photos');
           const listData = await listRes.json();
@@ -588,20 +558,48 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           if (photos.length === 0) {
             throw new Error('Could not create photo avatar: ' + JSON.stringify(avatarData));
           }
-          // Use the most recently added one
-          var finalAvatarId = photos[photos.length - 1].id;
-        } else {
-          var finalAvatarId = photoAvatarId;
+          photoAvatarId = photos[photos.length - 1].id;
         }
 
-        progressFill.style.width = '40%';
+        progressFill.style.width = '25%';
 
-        // Step 3c: Generate video
+        // 3c: Upload all audio files to HeyGen
+        statusText.textContent = 'Uploading audio to HeyGen...';
+        const audioUrls = [];
+
+        for (let i = 0; i < generatedLines.length; i++) {
+          const line = generatedLines[i];
+          statusText.textContent = `Uploading audio ${i + 1} of ${generatedLines.length}...`;
+
+          // Convert base64 to binary
+          const binaryStr = atob(line.audioBase64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+
+          const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fmpeg', {
+            method: 'POST',
+            body: bytes.buffer
+          });
+          const audioUploadData = await audioUploadRes.json();
+
+          if (!audioUploadData.data?.url) {
+            throw new Error(`Audio upload ${i} failed: ${JSON.stringify(audioUploadData)}`);
+          }
+
+          audioUrls.push({ url: audioUploadData.data.url, speaker: line.speaker });
+
+          const pct = 25 + Math.round(((i + 1) / generatedLines.length) * 20);
+          progressFill.style.width = pct + '%';
+        }
+
+        // 3d: Generate video
         statusText.textContent = 'Generating video (this may take a few minutes)...';
+        progressFill.style.width = '50%';
+
         const videoRes = await fetch('/api/heygen/generate-video', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectName, photoAvatarId: finalAvatarId })
+          body: JSON.stringify({ photoAvatarId, audioUrls })
         });
         const videoData = await videoRes.json();
         const videoId = videoData.data?.video_id;
@@ -610,10 +608,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           throw new Error('Video generation failed: ' + JSON.stringify(videoData));
         }
 
-        progressFill.style.width = '50%';
-
-        // Step 3d: Poll for completion
-        statusText.textContent = 'Video is being generated...';
+        // 3e: Poll for completion
         const videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
 
         progressFill.style.width = '100%';
@@ -640,21 +635,17 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     }
 
     async function pollVideoStatus(videoId, progressFill, statusText) {
-      let progress = 50;
+      let progress = 55;
       while (true) {
         await new Promise(r => setTimeout(r, 5000));
-
         const res = await fetch(`/api/heygen/video-status?video_id=${videoId}`);
         const data = await res.json();
         const status = data.data?.status;
 
-        if (status === 'completed') {
-          return data.data.video_url;
-        } else if (status === 'failed') {
-          throw new Error('Video generation failed on HeyGen side: ' + (data.data?.error || 'unknown'));
-        }
+        if (status === 'completed') return data.data.video_url;
+        if (status === 'failed') throw new Error('HeyGen video failed: ' + (data.data?.error || 'unknown'));
 
-        progress = Math.min(progress + 5, 95);
+        progress = Math.min(progress + 3, 95);
         progressFill.style.width = progress + '%';
         statusText.textContent = `Video is ${status || 'processing'}... (${Math.round(progress)}%)`;
       }
