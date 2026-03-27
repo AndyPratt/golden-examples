@@ -11,8 +11,8 @@ module.exports = async function handler(req, res) {
   // Build video inputs - one segment per audio clip
   const videoInputs = audioUrls.map(item => ({
     character: {
-      type: 'photo_avatar',
-      photo_avatar_id: photoAvatarId
+      type: 'talking_photo',
+      talking_photo_id: photoAvatarId
     },
     voice: {
       type: 'audio',
