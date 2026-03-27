@@ -3,11 +3,11 @@ const https = require('https');
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { voiceId, text } = req.body;
+  const { voiceId, text, direction } = req.body;
   if (!voiceId || !text) return res.status(400).json({ error: 'Missing voiceId or text' });
 
   try {
-    const audioBuffer = await generateSpeech(voiceId, text);
+    const audioBuffer = await generateSpeech(voiceId, text, direction);
     const base64 = audioBuffer.toString('base64');
     res.json({ audio: base64 });
   } catch (err) {
@@ -15,13 +15,20 @@ module.exports = async function handler(req, res) {
   }
 };
 
-function generateSpeech(voiceId, text) {
+function generateSpeech(voiceId, text, direction) {
   return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({
+    const body = {
       text,
       model_id: 'eleven_v2_flash',
       voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-    });
+    };
+
+    // Use previous_text to influence prosody without being spoken
+    if (direction) {
+      body.previous_text = direction;
+    }
+
+    const postData = JSON.stringify(body);
 
     const req = https.request({
       hostname: 'api.elevenlabs.io',

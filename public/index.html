@@ -591,16 +591,13 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           statusText.textContent = `Generating line ${i + 1} of ${lines.length}...`;
           progressFill.style.width = pct + '%';
 
-          // Apply character direction as a stage cue for CHARACTER lines
-          let ttsText = line.text;
-          if (line.speaker === 'CHARACTER' && direction) {
-            ttsText = `(${direction}) ${line.text}`;
-          }
+          // Pass direction separately for CHARACTER lines (influences prosody, not spoken)
+          const ttsDirection = line.speaker === 'CHARACTER' ? direction : '';
 
           const res = await fetch('/api/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ voiceId, text: ttsText })
+            body: JSON.stringify({ voiceId, text: line.text, direction: ttsDirection })
           });
 
           const data = await res.json();
