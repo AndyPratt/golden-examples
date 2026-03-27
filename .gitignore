@@ -1,0 +1,9 @@
+node_modules/
+.env
+output/
+.DS_Store
+Figaro_cat_female/
+*.mov
+*.mp4
+*.MP3
+*.mp3
