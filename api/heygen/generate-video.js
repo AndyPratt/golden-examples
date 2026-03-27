@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
     },
     voice: {
       type: 'audio',
-      input_audio: item.url
+      audio_url: item.url
     }
   }));
 
