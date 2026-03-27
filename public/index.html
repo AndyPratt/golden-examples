@@ -142,11 +142,74 @@
     .audio-indicator:hover { color: #4a9eff; }
     .audio-indicator.playing { color: #4a9eff; }
 
-    .voice-preview {
-      display: inline-block; margin-left: 8px; cursor: pointer;
-      font-size: 12px; color: #4a9eff;
+    /* Voice picker */
+    .voice-picker {
+      margin-top: 8px;
     }
-    .voice-preview:hover { text-decoration: underline; }
+    .voice-picker-header {
+      display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;
+    }
+    .voice-search {
+      flex: 1; min-width: 200px; background: #0a0a0a; border: 1px solid #333;
+      border-radius: 8px; padding: 8px 12px; color: #e0e0e0; font-size: 13px;
+    }
+    .voice-search:focus { outline: none; border-color: #4a9eff; }
+    .voice-search::placeholder { color: #555; }
+
+    .voice-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .voice-tag {
+      background: #222; border: 1px solid #333; border-radius: 16px;
+      padding: 4px 12px; font-size: 11px; color: #999; cursor: pointer;
+      transition: all 0.15s; user-select: none;
+    }
+    .voice-tag:hover { border-color: #555; color: #ccc; }
+    .voice-tag.active { background: #1a3a5c; border-color: #4a9eff; color: #4a9eff; }
+
+    .voice-list {
+      max-height: 280px; overflow-y: auto; border: 1px solid #222;
+      border-radius: 8px; background: #0d0d0d;
+    }
+    .voice-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-bottom: 1px solid #1a1a1a; cursor: pointer; transition: background 0.15s;
+    }
+    .voice-item:last-child { border-bottom: none; }
+    .voice-item:hover { background: #1a1a1a; }
+    .voice-item.selected { background: #1a2a3a; border-left: 3px solid #4a9eff; }
+
+    .voice-item-info { flex: 1; min-width: 0; }
+    .voice-item-name { font-size: 13px; font-weight: 500; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .voice-item-meta { font-size: 11px; color: #666; margin-top: 2px; }
+    .voice-item-desc { font-size: 11px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .voice-item-labels { display: flex; gap: 4px; flex-shrink: 0; }
+    .voice-label {
+      background: #222; border-radius: 4px; padding: 2px 6px;
+      font-size: 10px; color: #888;
+    }
+
+    .voice-play-btn {
+      background: none; border: 1px solid #333; border-radius: 50%;
+      width: 28px; height: 28px; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; flex-shrink: 0;
+      color: #888; font-size: 11px; transition: all 0.15s;
+    }
+    .voice-play-btn:hover { border-color: #4a9eff; color: #4a9eff; }
+    .voice-play-btn.playing { border-color: #4a9eff; color: #4a9eff; background: #1a2a3a; }
+
+    .voice-selected-display {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      background: #1a2a3a; border: 1px solid #2a4a6a; border-radius: 8px;
+      margin-top: 8px; font-size: 13px;
+    }
+    .voice-selected-display .voice-clear {
+      margin-left: auto; cursor: pointer; color: #666; font-size: 16px;
+    }
+    .voice-selected-display .voice-clear:hover { color: #e0e0e0; }
+
+    .voice-no-results {
+      padding: 20px; text-align: center; color: #555; font-size: 13px;
+    }
 
     .video-panel {
       display: none; background: #151515; border: 1px solid #2a2a2a;
@@ -199,19 +262,15 @@
       </div>
 
       <div class="setup-panel">
-        <h2>Voices</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Character Voice</label>
-            <select id="characterVoice"><option value="">Loading voices...</option></select>
-            <span class="voice-preview" onclick="previewVoice('characterVoice')">Preview</span>
-          </div>
-          <div class="form-group">
-            <label>User Voice</label>
-            <select id="userVoice"><option value="">Loading voices...</option></select>
-            <span class="voice-preview" onclick="previewVoice('userVoice')">Preview</span>
-          </div>
-        </div>
+        <h2>Character Voice</h2>
+        <div id="characterVoiceSelected"></div>
+        <div class="voice-picker" id="characterVoicePicker"></div>
+      </div>
+
+      <div class="setup-panel">
+        <h2>User Voice</h2>
+        <div id="userVoiceSelected"></div>
+        <div class="voice-picker" id="userVoicePicker"></div>
       </div>
 
       <div class="setup-panel">
@@ -265,41 +324,183 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
   <script>
     let voices = [];
-    let generatedLines = []; // { speaker, text, audioBase64, audioDataUrl }
+    let generatedLines = [];
     let characterImageUrl = null;
     let characterImageFile = null;
     let currentAudio = null;
+    let currentPlayingBtn = null;
     let isPlayingAll = false;
     let projectName = '';
+
+    // Selected voice IDs
+    let selectedVoices = { character: null, user: null };
 
     // ─── Load voices ───
     async function loadVoices() {
       try {
         const res = await fetch('/api/voices');
         voices = await res.json();
-        const charSelect = document.getElementById('characterVoice');
-        const userSelect = document.getElementById('userVoice');
-        charSelect.innerHTML = '<option value="">Select a voice...</option>';
-        userSelect.innerHTML = '<option value="">Select a voice...</option>';
-        voices.forEach(v => {
-          const opt = `<option value="${v.voice_id}">${v.name} (${v.gender}, ${v.accent})</option>`;
-          charSelect.innerHTML += opt;
-          userSelect.innerHTML += opt;
-        });
+        renderVoicePicker('character');
+        renderVoicePicker('user');
       } catch (err) {
         console.error('Failed to load voices:', err);
       }
     }
 
-    function previewVoice(selectId) {
-      const voiceId = document.getElementById(selectId).value;
-      if (!voiceId) return;
-      const voice = voices.find(v => v.voice_id === voiceId);
-      if (voice?.preview_url) {
-        if (currentAudio) currentAudio.pause();
-        currentAudio = new Audio(voice.preview_url);
-        currentAudio.play();
+    // ─── Build searchable text for a voice ───
+    function voiceSearchText(v) {
+      const parts = [v.name, v.gender, v.accent, v.age, v.use_case, v.descriptive, v.description];
+      Object.values(v.labels || {}).forEach(val => parts.push(val));
+      return parts.join(' ').toLowerCase();
+    }
+
+    // ─── Collect all unique tags from voices ───
+    function getAllTags() {
+      const tagSet = new Set();
+      voices.forEach(v => {
+        if (v.gender && v.gender !== 'unknown') tagSet.add(v.gender);
+        if (v.accent && v.accent !== 'unknown') tagSet.add(v.accent);
+        if (v.age && v.age !== 'unknown') tagSet.add(v.age.replace('_', ' '));
+        if (v.use_case && v.use_case !== 'unknown') tagSet.add(v.use_case);
+        if (v.descriptive) tagSet.add(v.descriptive);
+      });
+      return [...tagSet].sort();
+    }
+
+    // ─── Render voice picker ───
+    function renderVoicePicker(role) {
+      const container = document.getElementById(`${role}VoicePicker`);
+      const allTags = getAllTags();
+
+      container.innerHTML = `
+        <div class="voice-picker-header">
+          <input type="text" class="voice-search" id="${role}Search"
+            placeholder="Search by name, quality, or style (e.g. warm, energetic, british)...">
+        </div>
+        <div class="voice-tags" id="${role}Tags">
+          ${allTags.map(t => `<span class="voice-tag" data-tag="${t}" onclick="toggleTag('${role}', '${t}')">${t}</span>`).join('')}
+        </div>
+        <div class="voice-list" id="${role}List"></div>
+      `;
+
+      const searchInput = document.getElementById(`${role}Search`);
+      searchInput.addEventListener('input', () => filterVoices(role));
+
+      filterVoices(role);
+      updateSelectedDisplay(role);
+    }
+
+    // Active tags per role
+    const activeTags = { character: new Set(), user: new Set() };
+
+    function toggleTag(role, tag) {
+      if (activeTags[role].has(tag)) {
+        activeTags[role].delete(tag);
+      } else {
+        activeTags[role].add(tag);
       }
+      // Update tag UI
+      document.querySelectorAll(`#${role}Tags .voice-tag`).forEach(el => {
+        el.classList.toggle('active', activeTags[role].has(el.dataset.tag));
+      });
+      filterVoices(role);
+    }
+
+    function filterVoices(role) {
+      const query = document.getElementById(`${role}Search`).value.toLowerCase().trim();
+      const tags = activeTags[role];
+      const listEl = document.getElementById(`${role}List`);
+
+      const filtered = voices.filter(v => {
+        const searchable = voiceSearchText(v);
+        if (query && !searchable.includes(query)) return false;
+        if (tags.size > 0) {
+          for (const tag of tags) {
+            if (!searchable.includes(tag.toLowerCase())) return false;
+          }
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="voice-no-results">No voices match your filters</div>';
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(v => {
+        const isSelected = selectedVoices[role] === v.voice_id;
+        const labels = [];
+        if (v.gender !== 'unknown') labels.push(v.gender);
+        if (v.accent !== 'unknown') labels.push(v.accent);
+        if (v.age !== 'unknown') labels.push(v.age.replace('_', ' '));
+
+        return `
+          <div class="voice-item ${isSelected ? 'selected' : ''}"
+               data-voice-id="${v.voice_id}"
+               onclick="selectVoice('${role}', '${v.voice_id}')">
+            <button class="voice-play-btn" onclick="event.stopPropagation(); previewVoiceById('${v.voice_id}', this)" title="Preview">&#9654;</button>
+            <div class="voice-item-info">
+              <div class="voice-item-name">${escapeHtml(v.name)}</div>
+              ${v.description ? `<div class="voice-item-desc">${escapeHtml(v.description)}</div>` : ''}
+            </div>
+            <div class="voice-item-labels">
+              ${labels.map(l => `<span class="voice-label">${l}</span>`).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectVoice(role, voiceId) {
+      selectedVoices[role] = voiceId;
+      filterVoices(role);
+      updateSelectedDisplay(role);
+    }
+
+    function clearVoice(role) {
+      selectedVoices[role] = null;
+      filterVoices(role);
+      updateSelectedDisplay(role);
+    }
+
+    function updateSelectedDisplay(role) {
+      const displayEl = document.getElementById(`${role}VoiceSelected`);
+      if (!selectedVoices[role]) {
+        displayEl.innerHTML = '';
+        return;
+      }
+      const v = voices.find(v => v.voice_id === selectedVoices[role]);
+      if (!v) { displayEl.innerHTML = ''; return; }
+
+      displayEl.innerHTML = `
+        <div class="voice-selected-display">
+          <button class="voice-play-btn" onclick="previewVoiceById('${v.voice_id}', this)" title="Preview">&#9654;</button>
+          <span><strong>${escapeHtml(v.name)}</strong></span>
+          <span class="voice-clear" onclick="clearVoice('${role}')" title="Remove">&times;</span>
+        </div>
+      `;
+    }
+
+    function previewVoiceById(voiceId, btnEl) {
+      const voice = voices.find(v => v.voice_id === voiceId);
+      if (!voice?.preview_url) return;
+
+      if (currentAudio) {
+        currentAudio.pause();
+        if (currentPlayingBtn) currentPlayingBtn.classList.remove('playing');
+      }
+
+      currentAudio = new Audio(voice.preview_url);
+      currentPlayingBtn = btnEl;
+      btnEl.classList.add('playing');
+      btnEl.innerHTML = '&#9632;';
+
+      currentAudio.onended = () => {
+        btnEl.classList.remove('playing');
+        btnEl.innerHTML = '&#9654;';
+        currentPlayingBtn = null;
+      };
+      currentAudio.play();
     }
 
     // ─── Image upload ───
@@ -341,12 +542,12 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     // ─── Step 1: Generate Audio (line by line via /api/tts) ───
     async function generateAudio() {
       projectName = document.getElementById('projectName').value.trim();
-      const characterVoiceId = document.getElementById('characterVoice').value;
-      const userVoiceId = document.getElementById('userVoice').value;
+      const characterVoiceId = selectedVoices.character;
+      const userVoiceId = selectedVoices.user;
       const scriptText = document.getElementById('scriptInput').value.trim();
 
       if (!projectName || !characterVoiceId || !userVoiceId || !scriptText) {
-        alert('Please fill in all fields');
+        alert('Please fill in all fields (including selecting both voices)');
         return;
       }
 

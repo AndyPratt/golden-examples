@@ -12,7 +12,12 @@ module.exports = async function handler(req, res) {
       name: v.name,
       gender: v.labels?.gender || 'unknown',
       accent: v.labels?.accent || 'unknown',
-      preview_url: v.preview_url
+      age: v.labels?.age || 'unknown',
+      use_case: v.labels?.use_case || 'unknown',
+      descriptive: v.labels?.descriptive || '',
+      description: v.description || '',
+      preview_url: v.preview_url,
+      labels: v.labels || {}
     }));
     res.json(voices);
   } catch (err) {
