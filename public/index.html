@@ -138,9 +138,12 @@
     .message.character .message-bubble { background: #2a2a2a; border-bottom-left-radius: 4px; }
     .message.user .message-bubble { background: #1a3a5c; border-bottom-right-radius: 4px; }
 
-    .audio-indicator { font-size: 11px; color: #666; margin-top: 4px; cursor: pointer; }
+    .audio-controls { display: flex; gap: 12px; margin-top: 4px; }
+    .audio-indicator { font-size: 11px; color: #666; cursor: pointer; }
     .audio-indicator:hover { color: #4a9eff; }
     .audio-indicator.playing { color: #4a9eff; }
+    .audio-download { font-size: 11px; color: #666; cursor: pointer; text-decoration: none; }
+    .audio-download:hover { color: #4a9eff; }
 
     /* Voice picker */
     .voice-picker {
@@ -262,6 +265,15 @@
       </div>
 
       <div class="setup-panel">
+        <h2>Character Direction</h2>
+        <p style="font-size:12px; color:#666; margin-bottom:8px">
+          Describe how the character should deliver their lines. This gets applied as a stage direction.
+        </p>
+        <input type="text" id="characterDirection"
+          placeholder="e.g. playful and curious, with a warm purring quality">
+      </div>
+
+      <div class="setup-panel">
         <h2>Script</h2>
         <textarea id="scriptInput" placeholder="CHARACTER: Hello! I'm Figaro, a friendly cat who loves to chat.
 USER: Hi Figaro! How are you today?
@@ -296,6 +308,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           <div class="chat-header-name" id="chatName"></div>
           <div class="chat-controls">
             <button class="btn-small" id="playAllBtn" onclick="playAll()">Play All</button>
+            <button class="btn-small" onclick="downloadAll()">Download All</button>
           </div>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
@@ -569,6 +582,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       generatedLines = [];
 
       try {
+        const direction = document.getElementById('characterDirection').value.trim();
+
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
           const voiceId = line.speaker === 'CHARACTER' ? characterVoiceId : userVoiceId;
@@ -576,10 +591,16 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           statusText.textContent = `Generating line ${i + 1} of ${lines.length}...`;
           progressFill.style.width = pct + '%';
 
+          // Apply character direction as a stage cue for CHARACTER lines
+          let ttsText = line.text;
+          if (line.speaker === 'CHARACTER' && direction) {
+            ttsText = `(${direction}) ${line.text}`;
+          }
+
           const res = await fetch('/api/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ voiceId, text: line.text })
+            body: JSON.stringify({ voiceId, text: ttsText })
           });
 
           const data = await res.json();
@@ -633,7 +654,10 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           </div>
           <div>
             <div class="message-bubble">${escapeHtml(line.text)}</div>
-            <div class="audio-indicator" data-index="${i}" onclick="playLine(${i})">Play audio</div>
+            <div class="audio-controls">
+              <div class="audio-indicator" data-index="${i}" onclick="playLine(${i})">Play audio</div>
+              <a class="audio-download" href="${line.audioDataUrl}" download="${projectName}_${String(i).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3">Download</a>
+            </div>
           </div>
         `;
         messagesEl.appendChild(msgEl);
@@ -706,6 +730,17 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     }
 
     function approveAudio() { goToStep(3); }
+
+    function downloadAll() {
+      generatedLines.forEach((line, i) => {
+        const a = document.createElement('a');
+        a.href = line.audioDataUrl;
+        a.download = `${projectName}_${String(i).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
 
     // ─── Step 3: Generate Video ───
     async function generateVideo() {
