@@ -138,12 +138,41 @@
     .message.character .message-bubble { background: #2a2a2a; border-bottom-left-radius: 4px; }
     .message.user .message-bubble { background: #1a3a5c; border-bottom-right-radius: 4px; }
 
-    .audio-controls { display: flex; gap: 12px; margin-top: 4px; }
+    .audio-controls { display: flex; gap: 12px; margin-top: 4px; align-items: center; }
     .audio-indicator { font-size: 11px; color: #666; cursor: pointer; }
     .audio-indicator:hover { color: #4a9eff; }
     .audio-indicator.playing { color: #4a9eff; }
     .audio-download { font-size: 11px; color: #666; cursor: pointer; text-decoration: none; }
     .audio-download:hover { color: #4a9eff; }
+    .audio-regen { font-size: 11px; color: #666; cursor: pointer; }
+    .audio-regen:hover { color: #f59e0b; }
+
+    .regen-panel {
+      margin-top: 8px; padding: 10px 12px; background: #1a1a1a;
+      border: 1px solid #333; border-radius: 8px; display: none;
+    }
+    .regen-panel.open { display: block; }
+    .regen-suggestions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .regen-suggestion {
+      background: #222; border: 1px solid #333; border-radius: 14px;
+      padding: 3px 10px; font-size: 11px; color: #999; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .regen-suggestion:hover { border-color: #f59e0b; color: #f59e0b; }
+    .regen-input-row { display: flex; gap: 8px; }
+    .regen-input {
+      flex: 1; background: #0a0a0a; border: 1px solid #333; border-radius: 6px;
+      padding: 6px 10px; color: #e0e0e0; font-size: 12px; font-family: inherit;
+    }
+    .regen-input:focus { outline: none; border-color: #f59e0b; }
+    .regen-input::placeholder { color: #555; }
+    .regen-btn {
+      background: #f59e0b; color: #000; border: none; border-radius: 6px;
+      padding: 6px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+      white-space: nowrap;
+    }
+    .regen-btn:hover { background: #d97706; }
+    .regen-btn:disabled { background: #555; color: #888; cursor: not-allowed; }
 
     /* Voice picker */
     .voice-picker {
@@ -643,18 +672,58 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       generatedLines.forEach((line, i) => {
         const msgEl = document.createElement('div');
         msgEl.className = `message ${line.speaker.toLowerCase()}`;
+
+        const isCharacter = line.speaker === 'CHARACTER';
+        const regenHtml = isCharacter ? `
+          <div class="audio-regen" onclick="toggleRegen(${i})">Regenerate</div>
+          <div class="regen-panel" id="regenPanel${i}">
+            <div class="regen-suggestions">
+              <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'more enthusiastic')">more enthusiastic</span>
+              <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'softer and gentler')">softer and gentler</span>
+              <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'more playful')">more playful</span>
+              <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'slower pace')">slower pace</span>
+              <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'more serious')">more serious</span>
+              <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'whispering')">whispering</span>
+            </div>
+            <div class="regen-input-row">
+              <input type="text" class="regen-input" id="regenInput${i}"
+                placeholder="Describe how you want this line delivered..."
+                onkeydown="if(event.key==='Enter')regenWithCustom(${i})">
+              <button class="regen-btn" id="regenBtn${i}" onclick="regenWithCustom(${i})">Regenerate</button>
+            </div>
+          </div>
+        ` : '';
+
         msgEl.innerHTML = `
           <div class="message-avatar">
-            ${line.speaker === 'CHARACTER' && characterImageUrl
+            ${isCharacter && characterImageUrl
               ? `<img src="${characterImageUrl}">`
-              : line.speaker === 'CHARACTER' ? 'C' : 'U'}
+              : isCharacter ? 'C' : 'U'}
           </div>
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="message-bubble">${escapeHtml(line.text)}</div>
             <div class="audio-controls">
               <div class="audio-indicator" data-index="${i}" onclick="playLine(${i})">Play audio</div>
               <a class="audio-download" href="${line.audioDataUrl}" download="${projectName}_${String(i).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3">Download</a>
+              ${isCharacter ? '<div class="audio-regen" onclick="toggleRegen(' + i + ')">Regenerate</div>' : ''}
             </div>
+            ${isCharacter ? `
+            <div class="regen-panel" id="regenPanel${i}">
+              <div class="regen-suggestions">
+                <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'more enthusiastic')">more enthusiastic</span>
+                <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'softer and gentler')">softer and gentler</span>
+                <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'more playful')">more playful</span>
+                <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'slower pace')">slower pace</span>
+                <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'more serious')">more serious</span>
+                <span class="regen-suggestion" onclick="regenWithDirection(${i}, 'whispering')">whispering</span>
+              </div>
+              <div class="regen-input-row">
+                <input type="text" class="regen-input" id="regenInput${i}"
+                  placeholder="Describe how you want this line delivered..."
+                  onkeydown="if(event.key==='Enter')regenWithCustom(${i})">
+                <button class="regen-btn" id="regenBtn${i}" onclick="regenWithCustom(${i})">Regenerate</button>
+              </div>
+            </div>` : ''}
           </div>
         `;
         messagesEl.appendChild(msgEl);
@@ -724,6 +793,65 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       isPlayingAll = false;
       btn.classList.remove('active');
       btn.textContent = 'Play All';
+    }
+
+    // ─── Regenerate individual lines ───
+    function toggleRegen(index) {
+      const panel = document.getElementById(`regenPanel${index}`);
+      panel.classList.toggle('open');
+    }
+
+    async function regenWithDirection(index, direction) {
+      const input = document.getElementById(`regenInput${index}`);
+      input.value = direction;
+      await regenLine(index, direction);
+    }
+
+    async function regenWithCustom(index) {
+      const input = document.getElementById(`regenInput${index}`);
+      const direction = input.value.trim();
+      if (!direction) return;
+      await regenLine(index, direction);
+    }
+
+    async function regenLine(index, direction) {
+      const btn = document.getElementById(`regenBtn${index}`);
+      const line = generatedLines[index];
+      const voiceId = selectedVoices.character;
+
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ voiceId, text: line.text, direction })
+        });
+
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        // Update the line data
+        generatedLines[index].audioBase64 = data.audio;
+        generatedLines[index].audioDataUrl = `data:audio/mpeg;base64,${data.audio}`;
+
+        // Update the download link
+        const downloadLink = document.querySelector(`.message:nth-child(${index + 1}) .audio-download`);
+        if (downloadLink) {
+          downloadLink.href = generatedLines[index].audioDataUrl;
+        }
+
+        // Auto-play the new version
+        playLine(index);
+
+        btn.textContent = 'Regenerate';
+        btn.disabled = false;
+      } catch (err) {
+        alert('Regeneration failed: ' + err.message);
+        btn.textContent = 'Regenerate';
+        btn.disabled = false;
+      }
     }
 
     function approveAudio() { goToStep(3); }
