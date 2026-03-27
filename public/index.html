@@ -1004,7 +1004,11 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const status = data.data?.status;
 
         if (status === 'completed') return data.data.video_url;
-        if (status === 'failed') throw new Error('HeyGen video failed: ' + (data.data?.error || 'unknown'));
+        if (status === 'failed') {
+          const err = data.data?.error;
+          const errMsg = typeof err === 'object' ? JSON.stringify(err) : (err || 'unknown');
+          throw new Error('HeyGen video failed: ' + errMsg);
+        }
 
         progress = Math.min(progress + 3, 95);
         progressFill.style.width = progress + '%';
