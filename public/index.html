@@ -887,10 +887,22 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           throw new Error('No character image uploaded. Go back and add one.');
         }
 
-        // Step 1: Upload as regular asset (no face detection, supports animals)
+        // Step 1: Convert image to JPEG (ensures HeyGen reads dimensions) and upload as asset
         statusText.textContent = 'Uploading character image...';
-        const imageBuffer = await characterImageFile.arrayBuffer();
-        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(characterImageFile.type)}`, {
+        const jpegBlob = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Image conversion failed')), 'image/jpeg', 0.95);
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = URL.createObjectURL(characterImageFile);
+        });
+        const imageBuffer = await jpegBlob.arrayBuffer();
+        const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', {
           method: 'POST',
           body: imageBuffer
         });
