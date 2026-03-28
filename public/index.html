@@ -882,44 +882,23 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       progressFill.style.width = '5%';
 
       try {
-        // 3a: Upload character image to HeyGen
+        // 3a: Upload character image as a talking photo to HeyGen
         if (!characterImageFile) {
           throw new Error('No character image uploaded. Go back and add one.');
         }
 
-        statusText.textContent = 'Uploading character image to HeyGen...';
+        statusText.textContent = 'Creating talking photo from your character image...';
         const imageBuffer = await characterImageFile.arrayBuffer();
-        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(characterImageFile.type)}`, {
+        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(characterImageFile.type)}&as_talking_photo=true`, {
           method: 'POST',
           body: imageBuffer
         });
         const uploadData = await uploadRes.json();
 
-        if (!uploadData.data?.image_key) {
-          throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
-        }
-
-        progressFill.style.width = '15%';
-
-        // 3b: Create photo avatar
-        statusText.textContent = 'Creating photo avatar...';
-        const avatarRes = await fetch('/api/heygen/create-avatar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageKey: uploadData.data.image_key })
-        });
-        const avatarData = await avatarRes.json();
-        let photoAvatarId = avatarData.data?.photo_avatar_id || avatarData.data?.id;
-
+        // The talking photo upload returns the talking_photo_id directly
+        const photoAvatarId = uploadData.data?.talking_photo_id || uploadData.data?.id || uploadData.talking_photo_id;
         if (!photoAvatarId) {
-          statusText.textContent = 'Looking up photo avatar...';
-          const listRes = await fetch('/api/heygen/talking-photos');
-          const listData = await listRes.json();
-          const photos = listData.data || [];
-          if (photos.length === 0) {
-            throw new Error('Could not create photo avatar: ' + JSON.stringify(avatarData));
-          }
-          photoAvatarId = photos[photos.length - 1].id;
+          throw new Error('Failed to create talking photo: ' + JSON.stringify(uploadData));
         }
 
         progressFill.style.width = '25%';
