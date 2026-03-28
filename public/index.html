@@ -927,10 +927,13 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         // 3c: Get audio durations and upload CHARACTER audio to HeyGen
         statusText.textContent = 'Preparing audio...';
         const audioUrls = [];
+        const segmentInfo = []; // track timing for synced playback
 
         for (let i = 0; i < generatedLines.length; i++) {
           const line = generatedLines[i];
           statusText.textContent = `Processing audio ${i + 1} of ${generatedLines.length}...`;
+
+          const duration = await getAudioDuration(line.audioDataUrl);
 
           if (line.speaker === 'CHARACTER') {
             // Upload character audio to HeyGen
@@ -949,10 +952,12 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
             }
 
             audioUrls.push({ url: audioUploadData.data.url, speaker: 'CHARACTER' });
+            segmentInfo.push({ speaker: 'CHARACTER', duration });
           } else {
-            // For USER lines, get audio duration so character can be idle
-            const duration = await getAudioDuration(line.audioDataUrl);
-            audioUrls.push({ speaker: 'USER', duration: Math.ceil(duration) || 3 });
+            // For USER lines, character stays idle
+            const silenceDur = Math.ceil(duration) || 3;
+            audioUrls.push({ speaker: 'USER', duration: silenceDur });
+            segmentInfo.push({ speaker: 'USER', duration: silenceDur, lineIndex: i });
           }
 
           const pct = 25 + Math.round(((i + 1) / generatedLines.length) * 20);
@@ -982,16 +987,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         statusText.textContent = 'Video ready!';
         btn.textContent = 'Video Generated';
 
-        resultEl.innerHTML = `
-          <video controls autoplay style="margin-top:16px">
-            <source src="${videoUrl}" type="video/mp4">
-          </video>
-          <p style="margin-top:12px">
-            <a href="${videoUrl}" target="_blank" style="color:#4a9eff; text-decoration:none">
-              Download Video
-            </a>
-          </p>
-        `;
+        // Build synced player with user audio overlay
+        buildSyncedPlayer(resultEl, videoUrl, segmentInfo);
       } catch (err) {
         alert('Video generation failed: ' + err.message);
         btn.disabled = false;
@@ -999,6 +996,95 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         progressBar.classList.remove('active');
         statusText.classList.remove('active');
       }
+    }
+
+    // ─── Synced video player with user audio overlay ───
+    function buildSyncedPlayer(container, videoUrl, segmentInfo) {
+      // Calculate start times for each segment
+      let currentTime = 0;
+      const segments = segmentInfo.map((seg, i) => {
+        const start = currentTime;
+        currentTime += seg.duration;
+        return { ...seg, start };
+      });
+
+      // Find user segments and their audio
+      const userSegments = segments
+        .filter(s => s.speaker === 'USER' && s.lineIndex !== undefined)
+        .map(s => ({
+          start: s.start,
+          audio: new Audio(generatedLines[s.lineIndex].audioDataUrl),
+          lineIndex: s.lineIndex
+        }));
+
+      container.innerHTML = `
+        <video id="syncedVideo" style="margin-top:16px; max-width:100%; border-radius:8px; background:#000" crossorigin="anonymous"></video>
+        <div style="margin-top:12px; display:flex; gap:12px; justify-content:center; align-items:center">
+          <button class="btn-small" id="syncPlayBtn" onclick="toggleSyncedPlay()">Play with User Audio</button>
+          <a href="${videoUrl}" target="_blank" style="color:#4a9eff; text-decoration:none; font-size:13px">
+            Download Video (character only)
+          </a>
+        </div>
+      `;
+
+      const video = document.getElementById('syncedVideo');
+      video.src = videoUrl;
+      video.load();
+
+      // Store for playback control
+      window._syncedVideo = video;
+      window._userSegments = userSegments;
+      window._syncAnimFrame = null;
+      window._activeUserAudios = [];
+    }
+
+    function toggleSyncedPlay() {
+      const video = window._syncedVideo;
+      const btn = document.getElementById('syncPlayBtn');
+
+      if (!video.paused) {
+        video.pause();
+        // Pause all user audio
+        window._activeUserAudios.forEach(a => a.pause());
+        window._activeUserAudios = [];
+        if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
+        btn.textContent = 'Play with User Audio';
+        btn.classList.remove('active');
+        return;
+      }
+
+      video.play();
+      btn.textContent = 'Pause';
+      btn.classList.add('active');
+
+      const userSegments = window._userSegments;
+      const triggered = new Set();
+
+      function syncLoop() {
+        if (video.paused) return;
+
+        const t = video.currentTime;
+        userSegments.forEach((seg, i) => {
+          // Trigger user audio when video reaches the segment start
+          if (!triggered.has(i) && t >= seg.start && t < seg.start + 1) {
+            triggered.add(i);
+            seg.audio.currentTime = 0;
+            seg.audio.play();
+            window._activeUserAudios.push(seg.audio);
+          }
+        });
+
+        window._syncAnimFrame = requestAnimationFrame(syncLoop);
+      }
+
+      syncLoop();
+
+      video.onended = () => {
+        btn.textContent = 'Play with User Audio';
+        btn.classList.remove('active');
+        if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
+        window._activeUserAudios = [];
+      };
     }
 
     function getAudioDuration(dataUrl) {
