@@ -3,22 +3,40 @@ const https = require('https');
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { photoAvatarId, audioUrls } = req.body;
-  if (!photoAvatarId || !audioUrls || !audioUrls.length) {
-    return res.status(400).json({ error: 'Missing photoAvatarId or audioUrls' });
+  const { talkingPhotoId, audioUrls } = req.body;
+  if (!talkingPhotoId || !audioUrls || !audioUrls.length) {
+    return res.status(400).json({ error: 'Missing talkingPhotoId or audioUrls' });
   }
 
-  // Build video inputs - one segment per audio clip
-  const videoInputs = audioUrls.map(item => ({
-    character: {
-      type: 'talking_photo',
-      talking_photo_id: photoAvatarId
-    },
-    voice: {
-      type: 'audio',
-      audio_url: item.url
+  // Build video inputs:
+  // - CHARACTER lines: animated talking photo with audio
+  // - USER lines: silent/idle character for the duration of the user audio
+  const videoInputs = audioUrls.map(item => {
+    if (item.speaker === 'CHARACTER') {
+      return {
+        character: {
+          type: 'talking_photo',
+          talking_photo_id: talkingPhotoId
+        },
+        voice: {
+          type: 'audio',
+          audio_url: item.url
+        }
+      };
+    } else {
+      // User line: character stays idle, we'll overlay user audio in the player
+      return {
+        character: {
+          type: 'talking_photo',
+          talking_photo_id: talkingPhotoId
+        },
+        voice: {
+          type: 'silence',
+          duration: item.duration || 3
+        }
+      };
     }
-  }));
+  });
 
   try {
     const result = await heygenRequest('/v2/video/generate', {

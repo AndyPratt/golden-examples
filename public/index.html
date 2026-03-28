@@ -924,30 +924,36 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
         progressFill.style.width = '25%';
 
-        // 3c: Upload all audio files to HeyGen
-        statusText.textContent = 'Uploading audio to HeyGen...';
+        // 3c: Get audio durations and upload CHARACTER audio to HeyGen
+        statusText.textContent = 'Preparing audio...';
         const audioUrls = [];
 
         for (let i = 0; i < generatedLines.length; i++) {
           const line = generatedLines[i];
-          statusText.textContent = `Uploading audio ${i + 1} of ${generatedLines.length}...`;
+          statusText.textContent = `Processing audio ${i + 1} of ${generatedLines.length}...`;
 
-          // Convert base64 to binary
-          const binaryStr = atob(line.audioBase64);
-          const bytes = new Uint8Array(binaryStr.length);
-          for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+          if (line.speaker === 'CHARACTER') {
+            // Upload character audio to HeyGen
+            const binaryStr = atob(line.audioBase64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
 
-          const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fmpeg', {
-            method: 'POST',
-            body: bytes.buffer
-          });
-          const audioUploadData = await audioUploadRes.json();
+            const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fmpeg', {
+              method: 'POST',
+              body: bytes.buffer
+            });
+            const audioUploadData = await audioUploadRes.json();
 
-          if (!audioUploadData.data?.url) {
-            throw new Error(`Audio upload ${i} failed: ${JSON.stringify(audioUploadData)}`);
+            if (!audioUploadData.data?.url) {
+              throw new Error(`Audio upload ${i} failed: ${JSON.stringify(audioUploadData)}`);
+            }
+
+            audioUrls.push({ url: audioUploadData.data.url, speaker: 'CHARACTER' });
+          } else {
+            // For USER lines, get audio duration so character can be idle
+            const duration = await getAudioDuration(line.audioDataUrl);
+            audioUrls.push({ speaker: 'USER', duration: Math.ceil(duration) || 3 });
           }
-
-          audioUrls.push({ url: audioUploadData.data.url, speaker: line.speaker });
 
           const pct = 25 + Math.round(((i + 1) / generatedLines.length) * 20);
           progressFill.style.width = pct + '%';
@@ -960,7 +966,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const videoRes = await fetch('/api/heygen/generate-video', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ photoAvatarId, audioUrls })
+          body: JSON.stringify({ talkingPhotoId: photoAvatarId, audioUrls })
         });
         const videoData = await videoRes.json();
         const videoId = videoData.data?.video_id;
@@ -993,6 +999,14 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         progressBar.classList.remove('active');
         statusText.classList.remove('active');
       }
+    }
+
+    function getAudioDuration(dataUrl) {
+      return new Promise(resolve => {
+        const audio = new Audio(dataUrl);
+        audio.addEventListener('loadedmetadata', () => resolve(audio.duration));
+        audio.addEventListener('error', () => resolve(3));
+      });
     }
 
     async function pollVideoStatus(videoId, progressFill, statusText) {
