@@ -954,54 +954,73 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
         progressFill.style.width = '25%';
 
-        // 3c: Get audio durations and upload CHARACTER audio to HeyGen
-        statusText.textContent = 'Preparing audio...';
-        const audioUrls = [];
-        const segmentInfo = []; // track timing for synced playback
+        // 3c: Merge all audio into a single track (character audio + silence for user lines)
+        statusText.textContent = 'Merging audio into single track...';
+        const segmentInfo = [];
+        const audioCtx = new OfflineAudioContext(1, 1, 44100); // temp context for decoding
 
+        // First pass: decode all audio and get durations
+        const decodedClips = [];
         for (let i = 0; i < generatedLines.length; i++) {
           const line = generatedLines[i];
-          statusText.textContent = `Processing audio ${i + 1} of ${generatedLines.length}...`;
-
-          const duration = await getAudioDuration(line.audioDataUrl);
-
-          if (line.speaker === 'CHARACTER') {
-            // Upload character audio to HeyGen
-            const binaryStr = atob(line.audioBase64);
-            const bytes = new Uint8Array(binaryStr.length);
-            for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
-
-            const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fmpeg', {
-              method: 'POST',
-              body: bytes.buffer
-            });
-            const audioUploadData = await audioUploadRes.json();
-
-            if (!audioUploadData.data?.url) {
-              throw new Error(`Audio upload ${i} failed: ${JSON.stringify(audioUploadData)}`);
-            }
-
-            audioUrls.push({ url: audioUploadData.data.url, speaker: 'CHARACTER' });
-            segmentInfo.push({ speaker: 'CHARACTER', duration });
-          } else {
-            // For USER lines, character stays idle
-            const silenceDur = Math.ceil(duration) || 3;
-            audioUrls.push({ speaker: 'USER', duration: silenceDur });
-            segmentInfo.push({ speaker: 'USER', duration: silenceDur, lineIndex: i });
-          }
-
-          const pct = 25 + Math.round(((i + 1) / generatedLines.length) * 20);
-          progressFill.style.width = pct + '%';
+          const binaryStr = atob(line.audioBase64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+          const audioBuffer = await new AudioContext().decodeAudioData(bytes.buffer.slice(0));
+          decodedClips.push({ speaker: line.speaker, buffer: audioBuffer, duration: audioBuffer.duration, lineIndex: i });
         }
 
-        // 3d: Generate video
+        // Calculate total duration and segment timing
+        let totalDuration = 0;
+        for (const clip of decodedClips) {
+          segmentInfo.push({ speaker: clip.speaker, duration: clip.duration, start: totalDuration, lineIndex: clip.lineIndex });
+          totalDuration += clip.duration;
+        }
+
+        // Second pass: merge into single buffer
+        // Character audio plays at its timestamp, user lines become silence
+        const sampleRate = 44100;
+        const totalSamples = Math.ceil(totalDuration * sampleRate);
+        const offlineCtx = new OfflineAudioContext(1, totalSamples, sampleRate);
+
+        for (const seg of segmentInfo) {
+          if (seg.speaker === 'CHARACTER') {
+            const clip = decodedClips[seg.lineIndex];
+            const source = offlineCtx.createBufferSource();
+            source.buffer = clip.buffer;
+            source.connect(offlineCtx.destination);
+            source.start(seg.start);
+          }
+          // USER lines = silence (nothing placed, which is silence by default)
+        }
+
+        const mergedBuffer = await offlineCtx.startRendering();
+        progressFill.style.width = '35%';
+
+        // Encode merged audio as WAV
+        statusText.textContent = 'Uploading merged audio...';
+        const wavBlob = audioBufferToWav(mergedBuffer);
+        const wavArrayBuffer = await wavBlob.arrayBuffer();
+
+        const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fwav', {
+          method: 'POST',
+          body: wavArrayBuffer
+        });
+        const mergedUploadData = await mergedUploadRes.json();
+        if (!mergedUploadData.data?.url) {
+          throw new Error('Merged audio upload failed: ' + JSON.stringify(mergedUploadData));
+        }
+
+        progressFill.style.width = '45%';
+
+        // 3d: Generate single seamless video
         statusText.textContent = 'Generating video (this may take a few minutes)...';
         progressFill.style.width = '50%';
 
         const videoRes = await fetch('/api/heygen/generate-video', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ talkingPhotoId: photoAvatarId, audioUrls })
+          body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
         });
         const videoData = await videoRes.json();
         const videoId = videoData.data?.video_id;
@@ -1146,6 +1165,49 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         progress = Math.min(progress + 3, 95);
         progressFill.style.width = progress + '%';
         statusText.textContent = `Video is ${status || 'processing'}... (${Math.round(progress)}%)`;
+      }
+    }
+
+    // ─── WAV encoder ───
+    function audioBufferToWav(buffer) {
+      const numChannels = 1;
+      const sampleRate = buffer.sampleRate;
+      const samples = buffer.getChannelData(0);
+      const bytesPerSample = 2;
+      const dataLength = samples.length * bytesPerSample;
+      const headerLength = 44;
+      const arrayBuffer = new ArrayBuffer(headerLength + dataLength);
+      const view = new DataView(arrayBuffer);
+
+      // WAV header
+      writeString(view, 0, 'RIFF');
+      view.setUint32(4, 36 + dataLength, true);
+      writeString(view, 8, 'WAVE');
+      writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+      view.setUint16(32, numChannels * bytesPerSample, true);
+      view.setUint16(34, bytesPerSample * 8, true);
+      writeString(view, 36, 'data');
+      view.setUint32(40, dataLength, true);
+
+      // Convert float samples to 16-bit PCM
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+      }
+
+      return new Blob([arrayBuffer], { type: 'audio/wav' });
+    }
+
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
       }
     }
 

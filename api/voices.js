@@ -4,22 +4,43 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const data = await fetchJSON('api.elevenlabs.io', '/v1/voices', {
-      'xi-api-key': process.env.ELEVENLABS_API_KEY
-    });
-    const voices = data.voices.map(v => ({
+    // Fetch user's own voices and shared voice library in parallel
+    const [ownData, sharedData] = await Promise.all([
+      fetchJSON('api.elevenlabs.io', '/v1/voices', {
+        'xi-api-key': process.env.ELEVENLABS_API_KEY
+      }),
+      fetchJSON('api.elevenlabs.io', '/v1/shared-voices?page_size=100&sort=trending', {
+        'xi-api-key': process.env.ELEVENLABS_API_KEY
+      })
+    ]);
+
+    const mapVoice = v => ({
       voice_id: v.voice_id,
       name: v.name,
-      gender: v.labels?.gender || 'unknown',
-      accent: v.labels?.accent || 'unknown',
-      age: v.labels?.age || 'unknown',
-      use_case: v.labels?.use_case || 'unknown',
-      descriptive: v.labels?.descriptive || '',
+      gender: v.labels?.gender || v.gender || 'unknown',
+      accent: v.labels?.accent || v.accent || 'unknown',
+      age: v.labels?.age || v.age || 'unknown',
+      use_case: v.labels?.use_case || v.use_case || 'unknown',
+      descriptive: v.labels?.descriptive || v.descriptive || '',
       description: v.description || '',
       preview_url: v.preview_url,
       labels: v.labels || {}
-    }));
-    res.json(voices);
+    });
+
+    const ownVoices = (ownData.voices || []).map(mapVoice);
+    const sharedVoices = (sharedData.voices || []).map(mapVoice);
+
+    // Deduplicate by voice_id, own voices first
+    const seen = new Set();
+    const all = [];
+    for (const v of [...ownVoices, ...sharedVoices]) {
+      if (!seen.has(v.voice_id)) {
+        seen.add(v.voice_id);
+        all.push(v);
+      }
+    }
+
+    res.json(all);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

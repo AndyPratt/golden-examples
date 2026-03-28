@@ -3,51 +3,30 @@ const https = require('https');
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { talkingPhotoId, audioUrls } = req.body;
-  if (!talkingPhotoId || !audioUrls || !audioUrls.length) {
-    return res.status(400).json({ error: 'Missing talkingPhotoId or audioUrls' });
+  const { talkingPhotoId, mergedAudioUrl } = req.body;
+  if (!talkingPhotoId || !mergedAudioUrl) {
+    return res.status(400).json({ error: 'Missing talkingPhotoId or mergedAudioUrl' });
   }
 
-  // Build video inputs:
-  // - CHARACTER lines: animated talking photo with audio
-  // - USER lines: silent/idle character for the duration of the user audio
-  const videoInputs = audioUrls.map(item => {
-    if (item.speaker === 'CHARACTER') {
-      return {
-        character: {
-          type: 'talking_photo',
-          talking_photo_id: talkingPhotoId,
-          use_avatar_iv_model: true,
-          talking_style: 'expressive',
-          super_resolution: true
-        },
-        voice: {
-          type: 'audio',
-          audio_url: item.url
-        }
-      };
-    } else {
-      // User line: character stays idle, we'll overlay user audio in the player
-      return {
-        character: {
-          type: 'talking_photo',
-          talking_photo_id: talkingPhotoId,
-          use_avatar_iv_model: true,
-          talking_style: 'stable',
-          super_resolution: true
-        },
-        voice: {
-          type: 'silence',
-          duration: item.duration || 3
-        }
-      };
+  // Single video input with merged audio = one seamless video, no cuts
+  const videoInputs = [{
+    character: {
+      type: 'talking_photo',
+      talking_photo_id: talkingPhotoId,
+      use_avatar_iv_model: true,
+      talking_style: 'expressive',
+      super_resolution: true
+    },
+    voice: {
+      type: 'audio',
+      audio_url: mergedAudioUrl
     }
-  });
+  }];
 
   try {
     const result = await heygenRequest('/v2/video/generate', {
       video_inputs: videoInputs,
-      dimension: { width: 1280, height: 720 }
+      dimension: { width: 720, height: 1280 }
     });
     res.json(result);
   } catch (err) {
