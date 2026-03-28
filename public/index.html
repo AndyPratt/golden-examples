@@ -1001,7 +1001,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const wavBlob = audioBufferToWav(mergedBuffer);
         const wavArrayBuffer = await wavBlob.arrayBuffer();
 
-        const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fwav', {
+        const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', {
           method: 'POST',
           body: wavArrayBuffer
         });

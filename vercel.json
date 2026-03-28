@@ -3,8 +3,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 60,
-      "maxBodyLength": 10485760
+      "maxDuration": 60
     }
   },
   "rewrites": [
