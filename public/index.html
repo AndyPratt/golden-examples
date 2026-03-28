@@ -337,7 +337,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           <div class="chat-header-name" id="chatName"></div>
           <div class="chat-controls">
             <button class="btn-small" id="playAllBtn" onclick="playAll()">Play All</button>
-            <button class="btn-small" onclick="downloadAll()">Download All</button>
+            <button class="btn-small" onclick="downloadAll('all')">Download All</button>
+            <button class="btn-small" onclick="downloadAll('character')">Download Character Only</button>
           </div>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
@@ -373,6 +374,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     let currentPlayingBtn = null;
     let isPlayingAll = false;
     let projectName = '';
+    let lastVideoUrl = null;
+    let lastSegmentInfo = null;
 
     // Selected voice IDs
     let selectedVoices = { character: null, user: null };
@@ -576,9 +579,27 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       document.getElementById('step3View').style.display = step === 3 ? 'block' : 'none';
       document.getElementById('step1Label').className = `step ${step === 1 ? 'active' : step > 1 ? 'done' : ''}`;
       document.getElementById('step2Label').className = `step ${step === 2 ? 'active' : step > 2 ? 'done' : ''}`;
-      document.getElementById('step3Label').className = `step ${step === 3 ? 'active' : ''}`;
+      document.getElementById('step3Label').className = `step ${step === 3 ? 'active' : lastVideoUrl ? 'done' : ''}`;
       if (currentAudio) currentAudio.pause();
       isPlayingAll = false;
+      // Pause synced video when navigating away
+      if (window._syncedVideo && !window._syncedVideo.paused) {
+        window._syncedVideo.pause();
+        window._activeUserAudios?.forEach(a => a.pause());
+        window._activeUserAudios = [];
+        if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
+      }
+      // Restore video result if returning to step 3 with a previous video
+      if (step === 3 && lastVideoUrl) {
+        const resultEl = document.getElementById('videoResult');
+        if (!resultEl.innerHTML.trim()) {
+          buildSyncedPlayer(resultEl, lastVideoUrl, lastSegmentInfo);
+          document.getElementById('videoBtn').textContent = 'Regenerate Video';
+          document.getElementById('videoBtn').disabled = false;
+          document.getElementById('videoStatusText').textContent = 'Video ready!';
+          document.getElementById('videoStatusText').classList.add('active');
+        }
+      }
     }
 
     // ─── Step 1: Generate Audio (line by line via /api/tts) ───
@@ -856,11 +877,15 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
     function approveAudio() { goToStep(3); }
 
-    function downloadAll() {
-      generatedLines.forEach((line, i) => {
+    function downloadAll(filter) {
+      const lines = filter === 'character'
+        ? generatedLines.filter(l => l.speaker === 'CHARACTER')
+        : generatedLines;
+      lines.forEach((line, i) => {
+        const idx = generatedLines.indexOf(line);
         const a = document.createElement('a');
         a.href = line.audioDataUrl;
-        a.download = `${projectName}_${String(i).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3`;
+        a.download = `${projectName}_${String(idx).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -990,7 +1015,12 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
         progressFill.style.width = '100%';
         statusText.textContent = 'Video ready!';
-        btn.textContent = 'Video Generated';
+        btn.textContent = 'Regenerate Video';
+        btn.disabled = false;
+
+        // Save for persistence across step navigation
+        lastVideoUrl = videoUrl;
+        lastSegmentInfo = segmentInfo;
 
         // Build synced player with user audio overlay
         buildSyncedPlayer(resultEl, videoUrl, segmentInfo);
@@ -1023,12 +1053,10 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         }));
 
       container.innerHTML = `
-        <video id="syncedVideo" style="margin-top:16px; max-width:100%; border-radius:8px; background:#000" crossorigin="anonymous"></video>
-        <div style="margin-top:12px; display:flex; gap:12px; justify-content:center; align-items:center">
+        <video id="syncedVideo" controls style="margin-top:16px; max-width:100%; border-radius:8px; background:#000" crossorigin="anonymous"></video>
+        <div style="margin-top:12px; display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap">
           <button class="btn-small" id="syncPlayBtn" onclick="toggleSyncedPlay()">Play with User Audio</button>
-          <a href="${videoUrl}" target="_blank" style="color:#4a9eff; text-decoration:none; font-size:13px">
-            Download Video (character only)
-          </a>
+          <button class="btn-small" onclick="downloadVideo()">Download Video</button>
         </div>
       `;
 
@@ -1118,6 +1146,24 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         progress = Math.min(progress + 3, 95);
         progressFill.style.width = progress + '%';
         statusText.textContent = `Video is ${status || 'processing'}... (${Math.round(progress)}%)`;
+      }
+    }
+
+    async function downloadVideo() {
+      if (!lastVideoUrl) return;
+      try {
+        const res = await fetch(lastVideoUrl);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${projectName || 'video'}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      } catch {
+        // Fallback: open in new tab if CORS blocks download
+        window.open(lastVideoUrl, '_blank');
       }
     }
 
