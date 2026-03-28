@@ -957,18 +957,18 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         // 3c: Merge all audio into a single track (character audio + silence for user lines)
         statusText.textContent = 'Merging audio into single track...';
         const segmentInfo = [];
-        const audioCtx = new OfflineAudioContext(1, 1, 44100); // temp context for decoding
-
         // First pass: decode all audio and get durations
+        const decodeCtx = new AudioContext();
         const decodedClips = [];
         for (let i = 0; i < generatedLines.length; i++) {
           const line = generatedLines[i];
           const binaryStr = atob(line.audioBase64);
           const bytes = new Uint8Array(binaryStr.length);
           for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
-          const audioBuffer = await new AudioContext().decodeAudioData(bytes.buffer.slice(0));
+          const audioBuffer = await decodeCtx.decodeAudioData(bytes.buffer.slice(0));
           decodedClips.push({ speaker: line.speaker, buffer: audioBuffer, duration: audioBuffer.duration, lineIndex: i });
         }
+        decodeCtx.close();
 
         // Calculate total duration and segment timing
         let totalDuration = 0;
@@ -977,9 +977,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           totalDuration += clip.duration;
         }
 
-        // Second pass: merge into single buffer
-        // Character audio plays at its timestamp, user lines become silence
-        const sampleRate = 44100;
+        // Second pass: merge into single buffer at 16kHz (sufficient for speech, keeps file small)
+        const sampleRate = 16000;
         const totalSamples = Math.ceil(totalDuration * sampleRate);
         const offlineCtx = new OfflineAudioContext(1, totalSamples, sampleRate);
 
@@ -1006,6 +1005,10 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           method: 'POST',
           body: wavArrayBuffer
         });
+        if (!mergedUploadRes.ok) {
+          const errText = await mergedUploadRes.text();
+          throw new Error(`Audio upload failed (${mergedUploadRes.status}): ${errText.substring(0, 200)}`);
+        }
         const mergedUploadData = await mergedUploadRes.json();
         if (!mergedUploadData.data?.url) {
           throw new Error('Merged audio upload failed: ' + JSON.stringify(mergedUploadData));
