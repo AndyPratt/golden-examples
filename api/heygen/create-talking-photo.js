@@ -3,32 +3,28 @@ const https = require('https');
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const contentType = req.query.content_type || 'image/png';
-
-  // Collect raw body
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const buffer = Buffer.concat(chunks);
+  const { storageKey } = req.body;
+  if (!storageKey) return res.status(400).json({ error: 'Missing storageKey' });
 
   try {
-    // Always upload as regular asset (no face detection, supports non-human images)
-    const result = await heygenUpload(buffer, contentType, '/v1/asset');
+    const result = await createTalkingPhoto(storageKey);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-function heygenUpload(buffer, contentType, path) {
+function createTalkingPhoto(storageKey) {
   return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ storage_key: storageKey });
     const req = https.request({
-      hostname: 'upload.heygen.com',
-      path,
-      method: 'POST',
+      hostname: 'api.heygen.com',
+      path: '/v1/talking_photo.create',
+      method: 'GET',
       headers: {
         'X-Api-Key': process.env.HEYGEN_API_KEY,
-        'Content-Type': contentType,
-        'Content-Length': buffer.length
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
       }
     }, (resp) => {
       const chunks = [];
@@ -36,12 +32,12 @@ function heygenUpload(buffer, contentType, path) {
       resp.on('end', () => {
         const raw = Buffer.concat(chunks).toString();
         try { resolve(JSON.parse(raw)); }
-        catch { reject(new Error('HeyGen upload error: ' + raw)); }
+        catch { reject(new Error('HeyGen create talking photo error: ' + raw)); }
       });
     });
 
     req.on('error', reject);
-    req.write(buffer);
+    req.write(body);
     req.end();
   });
 }

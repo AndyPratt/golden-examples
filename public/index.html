@@ -882,23 +882,37 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       progressFill.style.width = '5%';
 
       try {
-        // 3a: Upload character image as a talking photo to HeyGen
+        // 3a: Upload character image as asset, then create talking photo
         if (!characterImageFile) {
           throw new Error('No character image uploaded. Go back and add one.');
         }
 
-        statusText.textContent = 'Creating talking photo from your character image...';
+        // Step 1: Upload as regular asset (no face detection, supports animals)
+        statusText.textContent = 'Uploading character image...';
         const imageBuffer = await characterImageFile.arrayBuffer();
-        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(characterImageFile.type)}&as_talking_photo=true`, {
+        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(characterImageFile.type)}`, {
           method: 'POST',
           body: imageBuffer
         });
         const uploadData = await uploadRes.json();
+        const imageKey = uploadData.data?.image_key;
+        if (!imageKey) {
+          throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
+        }
 
-        // The talking photo upload returns the talking_photo_id directly
-        const photoAvatarId = uploadData.data?.talking_photo_id || uploadData.data?.id || uploadData.talking_photo_id;
+        progressFill.style.width = '15%';
+
+        // Step 2: Create talking photo from the uploaded asset
+        statusText.textContent = 'Creating talking photo from your character image...';
+        const tpRes = await fetch('/api/heygen/create-talking-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storageKey: imageKey })
+        });
+        const tpData = await tpRes.json();
+        const photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
         if (!photoAvatarId) {
-          throw new Error('Failed to create talking photo: ' + JSON.stringify(uploadData));
+          throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
         }
 
         progressFill.style.width = '25%';
