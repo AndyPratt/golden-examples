@@ -587,10 +587,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       // Pause synced video when navigating away
       if (window._syncedVideo && !window._syncedVideo.paused) {
         window._syncedVideo.pause();
-        window._activeUserAudios?.forEach(a => a.pause());
-        window._activeUserAudios = [];
-        if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
       }
+      stopUserAudioSync();
       // Restore video result if returning to step 3 with a previous video
       if (step === 3 && lastVideoUrl) {
         const resultEl = document.getElementById('videoResult');
@@ -1099,15 +1097,19 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         .filter(s => s.speaker === 'USER' && s.lineIndex !== undefined)
         .map(s => ({
           start: s.start,
+          duration: s.duration,
           audio: new Audio(generatedLines[s.lineIndex].audioDataUrl),
           lineIndex: s.lineIndex
         }));
 
       container.innerHTML = `
-        <video id="syncedVideo" controls style="margin-top:16px; max-width:100%; border-radius:8px; background:#000" crossorigin="anonymous"></video>
-        <div style="margin-top:12px; display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap">
-          <button class="btn-small" id="syncPlayBtn" onclick="toggleSyncedPlay()">Play with User Audio</button>
-          <button class="btn-small" onclick="downloadVideo()">Download Video</button>
+        <video id="syncedVideo" controls style="margin-top:16px; max-width:100%; max-height:70vh; border-radius:8px; background:#000; display:block; margin-left:auto; margin-right:auto"></video>
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap">
+          <label style="font-size:13px; color:#ccc; display:flex; align-items:center; gap:6px; cursor:pointer">
+            <input type="checkbox" id="userAudioToggle" checked style="accent-color:#4a9eff"> User audio
+          </label>
+          <button class="btn-small" onclick="downloadVideo(false)">Download Video</button>
+          <button class="btn-small" onclick="downloadVideo(true)">Download with User Audio</button>
         </div>
       `;
 
@@ -1120,39 +1122,32 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       window._userSegments = userSegments;
       window._syncAnimFrame = null;
       window._activeUserAudios = [];
+
+      // Auto-sync user audio with native video controls
+      video.addEventListener('play', () => startUserAudioSync());
+      video.addEventListener('pause', () => stopUserAudioSync());
+      video.addEventListener('seeked', () => { stopUserAudioSync(); if (!video.paused) startUserAudioSync(); });
+      video.addEventListener('ended', () => stopUserAudioSync());
     }
 
-    function toggleSyncedPlay() {
+    function startUserAudioSync() {
       const video = window._syncedVideo;
-      const btn = document.getElementById('syncPlayBtn');
-
-      if (!video.paused) {
-        video.pause();
-        // Pause all user audio
-        window._activeUserAudios.forEach(a => a.pause());
-        window._activeUserAudios = [];
-        if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
-        btn.textContent = 'Play with User Audio';
-        btn.classList.remove('active');
-        return;
-      }
-
-      video.play();
-      btn.textContent = 'Pause';
-      btn.classList.add('active');
-
       const userSegments = window._userSegments;
+      const toggle = document.getElementById('userAudioToggle');
+
+      stopUserAudioSync();
+      if (!toggle?.checked) return;
+
       const triggered = new Set();
 
       function syncLoop() {
-        if (video.paused) return;
+        if (video.paused || video.ended) return;
 
         const t = video.currentTime;
         userSegments.forEach((seg, i) => {
-          // Trigger user audio when video reaches the segment start
-          if (!triggered.has(i) && t >= seg.start && t < seg.start + 1) {
+          if (!triggered.has(i) && t >= seg.start && t < seg.start + seg.duration) {
             triggered.add(i);
-            seg.audio.currentTime = 0;
+            seg.audio.currentTime = t - seg.start;
             seg.audio.play();
             window._activeUserAudios.push(seg.audio);
           }
@@ -1162,13 +1157,13 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
 
       syncLoop();
+    }
 
-      video.onended = () => {
-        btn.textContent = 'Play with User Audio';
-        btn.classList.remove('active');
-        if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
-        window._activeUserAudios = [];
-      };
+    function stopUserAudioSync() {
+      window._activeUserAudios?.forEach(a => { a.pause(); a.currentTime = 0; });
+      window._activeUserAudios = [];
+      if (window._syncAnimFrame) cancelAnimationFrame(window._syncAnimFrame);
+      window._syncAnimFrame = null;
     }
 
     function getAudioDuration(dataUrl) {
@@ -1243,21 +1238,113 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
     }
 
-    async function downloadVideo() {
+    async function downloadVideo(withUserAudio) {
       if (!lastVideoUrl) return;
+
+      if (!withUserAudio) {
+        // Download character-only video directly
+        try {
+          const res = await fetch(lastVideoUrl);
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `${projectName || 'video'}_character_only.mp4`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+        } catch {
+          window.open(lastVideoUrl, '_blank');
+        }
+        return;
+      }
+
+      // Mix user audio into video using MediaRecorder
       try {
-        const res = await fetch(lastVideoUrl);
-        const blob = await res.blob();
+        const video = document.createElement('video');
+        video.src = lastVideoUrl;
+        video.crossOrigin = 'anonymous';
+        video.muted = true;
+        await new Promise((resolve, reject) => {
+          video.onloadeddata = resolve;
+          video.onerror = reject;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+
+        // Create audio context to mix video audio + user audio
+        const audioCtx = new AudioContext();
+        const dest = audioCtx.createMediaStreamDestination();
+
+        // Add video's audio track
+        const videoSource = audioCtx.createMediaElementSource(video);
+        videoSource.connect(dest);
+        videoSource.connect(audioCtx.destination); // keep audible during recording
+
+        // Pre-load user audio buffers
+        const userSegments = window._userSegments || [];
+        const userBuffers = [];
+        for (const seg of userSegments) {
+          const resp = await fetch(generatedLines[seg.lineIndex].audioDataUrl);
+          const arrayBuf = await resp.arrayBuffer();
+          const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+          userBuffers.push({ buffer: audioBuf, start: seg.start });
+        }
+
+        // Combine canvas video stream + mixed audio
+        const canvasStream = canvas.captureStream(30);
+        const mixedStream = new MediaStream([
+          ...canvasStream.getVideoTracks(),
+          ...dest.stream.getAudioTracks()
+        ]);
+
+        const recorder = new MediaRecorder(mixedStream, { mimeType: 'video/webm; codecs=vp9,opus' });
+        const chunks = [];
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+        const recordingDone = new Promise(resolve => { recorder.onstop = resolve; });
+
+        recorder.start();
+        video.muted = false;
+
+        // Schedule user audio playback
+        const startTime = audioCtx.currentTime;
+        for (const ub of userBuffers) {
+          const source = audioCtx.createBufferSource();
+          source.buffer = ub.buffer;
+          source.connect(dest);
+          source.start(startTime + ub.start);
+        }
+
+        // Draw video frames to canvas
+        video.play();
+        function drawFrame() {
+          if (video.ended || video.paused) {
+            recorder.stop();
+            return;
+          }
+          ctx.drawImage(video, 0, 0);
+          requestAnimationFrame(drawFrame);
+        }
+        drawFrame();
+
+        video.onended = () => recorder.stop();
+        await recordingDone;
+        audioCtx.close();
+
+        const blob = new Blob(chunks, { type: 'video/webm' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${projectName || 'video'}.mp4`;
+        a.download = `${projectName || 'video'}_with_user_audio.webm`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
-      } catch {
-        // Fallback: open in new tab if CORS blocks download
-        window.open(lastVideoUrl, '_blank');
+      } catch (err) {
+        alert('Mixed download failed: ' + err.message + '. Try the character-only download instead.');
       }
     }
 
