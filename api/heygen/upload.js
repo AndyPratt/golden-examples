@@ -11,8 +11,9 @@ module.exports = async function handler(req, res) {
   const buffer = Buffer.concat(chunks);
 
   try {
-    // Always upload as regular asset (no face detection, supports non-human images)
-    const result = await heygenUpload(buffer, contentType, '/v1/asset');
+    const asTalkingPhoto = req.query.as_talking_photo === 'true';
+    const uploadPath = asTalkingPhoto ? '/v1/talking_photo' : '/v1/asset';
+    const result = await heygenUpload(buffer, contentType, uploadPath);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

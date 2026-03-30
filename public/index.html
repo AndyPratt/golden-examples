@@ -912,8 +912,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           throw new Error('No character image uploaded. Go back and add one.');
         }
 
-        // Step 1: Convert image to JPEG (ensures HeyGen reads dimensions) and upload as asset
-        statusText.textContent = 'Uploading character image...';
+        // Convert image to JPEG for best compatibility
+        statusText.textContent = 'Preparing character image...';
         const jpegBlob = await new Promise((resolve, reject) => {
           const img = new Image();
           img.onload = () => {
@@ -927,29 +927,46 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           img.src = URL.createObjectURL(characterImageFile);
         });
         const imageBuffer = await jpegBlob.arrayBuffer();
-        const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', {
+
+        let photoAvatarId = null;
+
+        // Try direct talking photo upload first (sets dimensions properly)
+        statusText.textContent = 'Creating talking photo...';
+        const directRes = await fetch('/api/heygen/upload?content_type=image/jpeg&as_talking_photo=true', {
           method: 'POST',
           body: imageBuffer
         });
-        const uploadData = await uploadRes.json();
-        const imageKey = uploadData.data?.image_key;
-        if (!imageKey) {
-          throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
-        }
+        const directData = await directRes.json();
+        photoAvatarId = directData.data?.talking_photo_id;
 
-        progressFill.style.width = '15%';
-
-        // Step 2: Create talking photo from the uploaded asset
-        statusText.textContent = 'Creating talking photo from your character image...';
-        const tpRes = await fetch('/api/heygen/create-talking-photo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storageKey: imageKey })
-        });
-        const tpData = await tpRes.json();
-        const photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
         if (!photoAvatarId) {
-          throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
+          // Fallback: upload as asset then create talking photo (for non-human images)
+          statusText.textContent = 'Uploading character image...';
+          const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', {
+            method: 'POST',
+            body: imageBuffer
+          });
+          const uploadData = await uploadRes.json();
+          const imageKey = uploadData.data?.image_key;
+          if (!imageKey) {
+            throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
+          }
+
+          statusText.textContent = 'Creating talking photo from your character image...';
+          const tpRes = await fetch('/api/heygen/create-talking-photo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storageKey: imageKey })
+          });
+          const tpData = await tpRes.json();
+          photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
+          if (!photoAvatarId) {
+            throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
+          }
+
+          // Wait for HeyGen to process the talking photo before generating video
+          statusText.textContent = 'Waiting for talking photo to process...';
+          await new Promise(r => setTimeout(r, 15000));
         }
 
         progressFill.style.width = '25%';
@@ -1016,20 +1033,30 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
         progressFill.style.width = '45%';
 
-        // 3d: Generate single seamless video
+        // 3d: Generate single seamless video (retry if talking photo still processing)
         statusText.textContent = 'Generating video (this may take a few minutes)...';
         progressFill.style.width = '50%';
 
-        const videoRes = await fetch('/api/heygen/generate-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
-        });
-        const videoData = await videoRes.json();
-        const videoId = videoData.data?.video_id;
+        let videoId = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const videoRes = await fetch('/api/heygen/generate-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
+          });
+          const videoData = await videoRes.json();
+          videoId = videoData.data?.video_id;
 
-        if (!videoId) {
-          throw new Error('Video generation failed: ' + JSON.stringify(videoData));
+          if (videoId) break;
+
+          // If "missing image dimensions", wait and retry
+          const errMsg = JSON.stringify(videoData);
+          if (errMsg.includes('missing image dimensions') && attempt < 2) {
+            statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
+            await new Promise(r => setTimeout(r, 15000));
+            continue;
+          }
+          throw new Error('Video generation failed: ' + errMsg);
         }
 
         // 3e: Poll for completion
