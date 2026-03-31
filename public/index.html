@@ -387,8 +387,9 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           <div class="chat-header-name" id="chatName"></div>
           <div class="chat-controls">
             <button class="btn-small" id="playAllBtn" onclick="playAll()">Play All</button>
-            <button class="btn-small" onclick="downloadAll('all')">Download All</button>
-            <button class="btn-small" onclick="downloadAll('character')">Download Character Only</button>
+            <button class="btn-small" onclick="downloadMerged('both')">Download Mixed</button>
+            <button class="btn-small" onclick="downloadMerged('character')">Download Character</button>
+            <button class="btn-small" onclick="downloadMerged('user')">Download User</button>
           </div>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
@@ -951,19 +952,53 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
     function approveAudio() { goToStep(3); }
 
-    function downloadAll(filter) {
-      const lines = filter === 'character'
-        ? generatedLines.filter(l => l.speaker === 'CHARACTER')
-        : generatedLines;
-      lines.forEach((line, i) => {
-        const idx = generatedLines.indexOf(line);
-        const a = document.createElement('a');
-        a.href = line.audioDataUrl;
-        a.download = `${projectName}_${String(idx).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+    async function downloadMerged(mode) {
+      // mode: 'both' | 'character' | 'user'
+      // Decode all clips and compute timing
+      const decodeCtx = new AudioContext();
+      const clips = [];
+      for (const line of generatedLines) {
+        const binaryStr = atob(line.audioBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+        const buf = await decodeCtx.decodeAudioData(bytes.buffer.slice(0));
+        clips.push({ speaker: line.speaker, buffer: buf, duration: buf.duration });
+      }
+      decodeCtx.close();
+
+      // Build timeline
+      let totalDuration = 0;
+      const segments = clips.map(c => {
+        const seg = { speaker: c.speaker, buffer: c.buffer, start: totalDuration };
+        totalDuration += c.duration;
+        return seg;
       });
+
+      // Render to offline context at 44.1kHz for good download quality
+      const sampleRate = 44100;
+      const offlineCtx = new OfflineAudioContext(1, Math.ceil(totalDuration * sampleRate), sampleRate);
+      for (const seg of segments) {
+        const include = mode === 'both'
+          || (mode === 'character' && seg.speaker === 'CHARACTER')
+          || (mode === 'user' && seg.speaker === 'USER');
+        if (include) {
+          const source = offlineCtx.createBufferSource();
+          source.buffer = seg.buffer;
+          source.connect(offlineCtx.destination);
+          source.start(seg.start);
+        }
+      }
+
+      const rendered = await offlineCtx.startRendering();
+      const wavBlob = audioBufferToWav(rendered);
+      const suffix = mode === 'both' ? 'mixed' : mode;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(wavBlob);
+      a.download = `${projectName || 'audio'}_${suffix}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
     }
 
     // ─── Step 3: Generate Video ───
