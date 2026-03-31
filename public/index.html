@@ -306,6 +306,21 @@
     }
     .save-btn:hover { color: #f5c542; }
     .save-btn.saved { color: #f5c542; }
+
+    .tracks-dirty-banner {
+      display: none; padding: 10px 16px; background: #2a1a00;
+      border: 1px solid #f59e0b; border-radius: 8px; margin-top: 8px;
+      font-size: 13px; color: #f5c542; align-items: center; gap: 12px;
+      justify-content: space-between;
+    }
+    .tracks-dirty-banner.active { display: flex; }
+    .tracks-dirty-banner .btn-update {
+      background: #f59e0b; color: #000; border: none; border-radius: 6px;
+      padding: 6px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+      white-space: nowrap;
+    }
+    .tracks-dirty-banner .btn-update:hover { background: #d97706; }
+    .tracks-dirty-banner .btn-update:disabled { background: #555; color: #888; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -390,7 +405,12 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
             <button class="btn-small" onclick="downloadMerged('both')">Download Mixed</button>
             <button class="btn-small" onclick="downloadMerged('character')">Download Character</button>
             <button class="btn-small" onclick="downloadMerged('user')">Download User</button>
+            <button class="btn-small" id="saveTracksBtn" onclick="saveTracksToArchive(this)">Save to Archive</button>
           </div>
+        </div>
+        <div class="tracks-dirty-banner" id="tracksDirtyBanner">
+          <span>Lines have changed — tracks need updating</span>
+          <button class="btn-update" id="updateTracksBtn" onclick="updateTracks()">Update Tracks</button>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
       </div>
@@ -438,6 +458,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     let projectName = '';
     let lastVideoUrl = null;
     let lastSegmentInfo = null;
+    let tracksDirty = false;
 
     // Selected voice IDs
     let selectedVoices = { character: null, user: null };
@@ -800,7 +821,6 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
             <div class="audio-controls">
               <div class="audio-indicator" data-index="${i}" onclick="playLine(${i})">Play audio</div>
               <a class="audio-download" href="${line.audioDataUrl}" download="${projectName}_${String(i).padStart(3,'0')}_${line.speaker.toLowerCase()}.mp3">Download</a>
-              <button class="save-btn" onclick="saveAudioToArchive(${i}, this)" title="Save to archive">Save</button>
               ${isCharacter ? '<div class="audio-regen" onclick="toggleRegen(' + i + ')">Regenerate</div>' : ''}
             </div>
             ${isCharacter ? `
@@ -941,6 +961,9 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         // Auto-play the new version
         playLine(index);
 
+        // Mark tracks as needing update
+        markTracksDirty();
+
         btn.textContent = 'Regenerate';
         btn.disabled = false;
       } catch (err) {
@@ -948,6 +971,35 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         btn.textContent = 'Regenerate';
         btn.disabled = false;
       }
+    }
+
+    function markTracksDirty() {
+      tracksDirty = true;
+      document.getElementById('tracksDirtyBanner').classList.add('active');
+      // Disable download and save buttons
+      document.querySelectorAll('#chatView .chat-controls .btn-small:not(#playAllBtn)').forEach(btn => {
+        btn.disabled = true;
+      });
+    }
+
+    function clearTracksDirty() {
+      tracksDirty = false;
+      document.getElementById('tracksDirtyBanner').classList.remove('active');
+      document.querySelectorAll('#chatView .chat-controls .btn-small:not(#playAllBtn)').forEach(btn => {
+        btn.disabled = false;
+      });
+    }
+
+    function updateTracks() {
+      const btn = document.getElementById('updateTracksBtn');
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+      // Short delay for UX feedback, then clear dirty state
+      setTimeout(() => {
+        clearTracksDirty();
+        btn.disabled = false;
+        btn.textContent = 'Update Tracks';
+      }, 300);
     }
 
     function approveAudio() { goToStep(3); }
@@ -1477,19 +1529,69 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       localStorage.setItem('goldenVibesArchive', JSON.stringify(archive));
     }
 
-    function saveAudioToArchive(index, btnEl) {
-      const line = generatedLines[index];
-      const archive = getArchive();
-      archive.audio.push({
-        id: Date.now(),
-        project: projectName,
-        speaker: line.speaker,
-        text: line.text,
-        audioBase64: line.audioBase64,
-        savedAt: new Date().toISOString()
-      });
-      saveArchive(archive);
-      if (btnEl) { btnEl.classList.add('saved'); btnEl.textContent = 'Saved'; }
+    async function saveTracksToArchive(btnEl) {
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Saving...'; }
+      try {
+        const tracks = {};
+        for (const mode of ['both', 'character', 'user']) {
+          const decodeCtx = new AudioContext();
+          const clips = [];
+          for (const line of generatedLines) {
+            const binaryStr = atob(line.audioBase64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+            const buf = await decodeCtx.decodeAudioData(bytes.buffer.slice(0));
+            clips.push({ speaker: line.speaker, buffer: buf, duration: buf.duration });
+          }
+          decodeCtx.close();
+
+          let totalDuration = 0;
+          const segments = clips.map(c => {
+            const seg = { speaker: c.speaker, buffer: c.buffer, start: totalDuration };
+            totalDuration += c.duration;
+            return seg;
+          });
+
+          const sampleRate = 44100;
+          const offlineCtx = new OfflineAudioContext(1, Math.ceil(totalDuration * sampleRate), sampleRate);
+          for (const seg of segments) {
+            const include = mode === 'both'
+              || (mode === 'character' && seg.speaker === 'CHARACTER')
+              || (mode === 'user' && seg.speaker === 'USER');
+            if (include) {
+              const source = offlineCtx.createBufferSource();
+              source.buffer = seg.buffer;
+              source.connect(offlineCtx.destination);
+              source.start(seg.start);
+            }
+          }
+
+          const rendered = await offlineCtx.startRendering();
+          const wavBlob = audioBufferToWav(rendered);
+          const arrayBuf = await wavBlob.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+          tracks[mode] = base64;
+        }
+
+        const archive = getArchive();
+        archive.audio.push({
+          id: Date.now(),
+          project: projectName,
+          type: 'tracks',
+          tracks: {
+            mixed: tracks.both,
+            character: tracks.character,
+            user: tracks.user
+          },
+          lineCount: generatedLines.length,
+          savedAt: new Date().toISOString()
+        });
+        saveArchive(archive);
+        if (btnEl) { btnEl.textContent = 'Saved'; btnEl.style.color = '#f5c542'; btnEl.disabled = false; }
+      } catch (err) {
+        alert('Save failed: ' + err.message);
+        if (btnEl) { btnEl.textContent = 'Save to Archive'; btnEl.disabled = false; }
+      }
     }
 
     function saveVideoToArchive() {
@@ -1574,21 +1676,43 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         html += '<div class="archive-section"><h3>Audio</h3>';
         archive.audio.forEach(item => {
           const date = new Date(item.savedAt).toLocaleDateString();
-          const dataUrl = 'data:audio/mpeg;base64,' + item.audioBase64;
-          html += `
-            <div class="archive-item">
-              <div class="archive-item-header">
-                <span class="archive-item-title">${escapeHtml(item.project || 'Untitled')} — ${item.speaker}</span>
-                <span class="archive-item-date">${date}</span>
+          if (item.type === 'tracks' && item.tracks) {
+            const mixedUrl = 'data:audio/wav;base64,' + item.tracks.mixed;
+            const charUrl = 'data:audio/wav;base64,' + item.tracks.character;
+            const userUrl = 'data:audio/wav;base64,' + item.tracks.user;
+            html += `
+              <div class="archive-item">
+                <div class="archive-item-header">
+                  <span class="archive-item-title">${escapeHtml(item.project || 'Untitled')}</span>
+                  <span class="archive-item-date">${date}</span>
+                </div>
+                <div class="archive-item-meta">${item.lineCount} lines</div>
+                <div class="archive-item-actions">
+                  <button class="btn-small" onclick="new Audio('${mixedUrl}').play()">Play Mixed</button>
+                  <a href="${mixedUrl}" download="${item.project}_mixed.wav" style="color:#4a9eff; font-size:12px; text-decoration:none">Mixed</a>
+                  <a href="${charUrl}" download="${item.project}_character.wav" style="color:#4a9eff; font-size:12px; text-decoration:none">Character</a>
+                  <a href="${userUrl}" download="${item.project}_user.wav" style="color:#4a9eff; font-size:12px; text-decoration:none">User</a>
+                  <button class="archive-delete" onclick="deleteArchiveItem('audio', ${item.id})">Delete</button>
+                </div>
               </div>
-              <div class="archive-item-meta">${escapeHtml(item.text)}</div>
-              <div class="archive-item-actions">
-                <button class="btn-small" onclick="new Audio('${dataUrl}').play()">Play</button>
-                <a href="${dataUrl}" download="${item.project}_${item.speaker.toLowerCase()}.mp3" style="color:#4a9eff; font-size:12px; text-decoration:none">Download</a>
-                <button class="archive-delete" onclick="deleteArchiveItem('audio', ${item.id})">Delete</button>
+            `;
+          } else {
+            const dataUrl = 'data:audio/mpeg;base64,' + item.audioBase64;
+            html += `
+              <div class="archive-item">
+                <div class="archive-item-header">
+                  <span class="archive-item-title">${escapeHtml(item.project || 'Untitled')} — ${item.speaker}</span>
+                  <span class="archive-item-date">${date}</span>
+                </div>
+                <div class="archive-item-meta">${escapeHtml(item.text)}</div>
+                <div class="archive-item-actions">
+                  <button class="btn-small" onclick="new Audio('${dataUrl}').play()">Play</button>
+                  <a href="${dataUrl}" download="${item.project}_${item.speaker.toLowerCase()}.mp3" style="color:#4a9eff; font-size:12px; text-decoration:none">Download</a>
+                  <button class="archive-delete" onclick="deleteArchiveItem('audio', ${item.id})">Delete</button>
+                </div>
               </div>
-            </div>
-          `;
+            `;
+          }
         });
         html += '</div>';
       }
