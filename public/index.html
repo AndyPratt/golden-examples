@@ -188,11 +188,25 @@
     .voice-search:focus { outline: none; border-color: #4a9eff; }
     .voice-search::placeholder { color: #555; }
 
-    .voice-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .voice-tags-wrapper { position: relative; margin-bottom: 8px; }
+    .voice-tags {
+      display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; max-height: 28px;
+      transition: max-height 0.25s ease;
+    }
+    .voice-tags.expanded { flex-wrap: wrap; max-height: 500px; }
+    .voice-tags-toggle {
+      background: none; border: none; color: #666; cursor: pointer; font-size: 11px;
+      padding: 4px 0; margin-top: 2px; display: flex; align-items: center; gap: 4px;
+    }
+    .voice-tags-toggle:hover { color: #ccc; }
+    .voice-tags-toggle .caret {
+      display: inline-block; transition: transform 0.2s; font-size: 9px;
+    }
+    .voice-tags-toggle .caret.open { transform: rotate(180deg); }
     .voice-tag {
       background: #222; border: 1px solid #333; border-radius: 16px;
       padding: 4px 12px; font-size: 11px; color: #999; cursor: pointer;
-      transition: all 0.15s; user-select: none;
+      transition: all 0.15s; user-select: none; white-space: nowrap; flex-shrink: 0;
     }
     .voice-tag:hover { border-color: #555; color: #ccc; }
     .voice-tag.active { background: #1a3a5c; border-color: #4a9eff; color: #4a9eff; }
@@ -466,8 +480,13 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           <input type="text" class="voice-search" id="${role}Search"
             placeholder="Search by name, quality, or style (e.g. warm, energetic, british)...">
         </div>
-        <div class="voice-tags" id="${role}Tags">
-          ${allTags.map(t => `<span class="voice-tag" data-tag="${t}" onclick="toggleTag('${role}', '${t}')">${t}</span>`).join('')}
+        <div class="voice-tags-wrapper">
+          <div class="voice-tags" id="${role}Tags">
+            ${allTags.map(t => `<span class="voice-tag" data-tag="${t}" onclick="toggleTag('${role}', '${t}')">${t}</span>`).join('')}
+          </div>
+          <button class="voice-tags-toggle" onclick="toggleTagsExpand('${role}')">
+            <span class="caret" id="${role}Caret">&#9660;</span> <span id="${role}ToggleLabel">Show all tags</span>
+          </button>
         </div>
         <div class="voice-list" id="${role}List"></div>
       `;
@@ -493,6 +512,15 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         el.classList.toggle('active', activeTags[role].has(el.dataset.tag));
       });
       filterVoices(role);
+    }
+
+    function toggleTagsExpand(role) {
+      const tags = document.getElementById(`${role}Tags`);
+      const caret = document.getElementById(`${role}Caret`);
+      const label = document.getElementById(`${role}ToggleLabel`);
+      const expanded = tags.classList.toggle('expanded');
+      caret.classList.toggle('open', expanded);
+      label.textContent = expanded ? 'Show less' : 'Show all tags';
     }
 
     function filterVoices(role) {
