@@ -1475,21 +1475,15 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         return;
       }
 
-      // Mix user audio into video using MediaRecorder
+      // Mix user audio into video using MediaRecorder — capture video stream directly (no canvas)
       try {
         const video = document.createElement('video');
         video.src = lastVideoUrl;
         video.crossOrigin = 'anonymous';
-        video.muted = true;
         await new Promise((resolve, reject) => {
           video.onloadeddata = resolve;
           video.onerror = reject;
         });
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 393;
-        canvas.height = 852;
-        const ctx = canvas.getContext('2d');
 
         // Create audio context to mix video audio + user audio
         const audioCtx = new AudioContext();
@@ -1498,7 +1492,6 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         // Add video's audio track
         const videoSource = audioCtx.createMediaElementSource(video);
         videoSource.connect(dest);
-        videoSource.connect(audioCtx.destination); // keep audible during recording
 
         // Pre-load user audio buffers
         const userSegments = window._userSegments || [];
@@ -1510,10 +1503,10 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           userBuffers.push({ buffer: audioBuf, start: seg.start });
         }
 
-        // Combine canvas video stream + mixed audio
-        const canvasStream = canvas.captureStream(30);
+        // Capture video stream directly from the video element — preserves original frames
+        const videoStream = video.captureStream();
         const mixedStream = new MediaStream([
-          ...canvasStream.getVideoTracks(),
+          ...videoStream.getVideoTracks(),
           ...dest.stream.getAudioTracks()
         ]);
 
@@ -1531,7 +1524,6 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const recordingDone = new Promise(resolve => { recorder.onstop = resolve; });
 
         recorder.start();
-        video.muted = false;
 
         // Schedule user audio playback
         const startTime = audioCtx.currentTime;
@@ -1542,18 +1534,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           source.start(startTime + ub.start);
         }
 
-        // Draw video frames to canvas
         video.play();
-        function drawFrame() {
-          if (video.ended || video.paused) {
-            recorder.stop();
-            return;
-          }
-          ctx.drawImage(video, 0, 0, 393, 852);
-          requestAnimationFrame(drawFrame);
-        }
-        drawFrame();
-
         video.onended = () => recorder.stop();
         await recordingDone;
         audioCtx.close();
