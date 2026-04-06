@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing talkingPhotoId or mergedAudioUrl' });
   }
 
-  // Single video input with merged audio = one seamless video, no cuts
+  // Use v1 API — v2 defaults to "unlimited mode" which rejects user-uploaded talking photos
   const videoInputs = [{
     character: {
       type: 'talking_photo',
@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
   }];
 
   try {
-    const result = await heygenRequest('/v2/video/generate', {
+    const result = await heygenRequest('/v1/video.generate', {
       video_inputs: videoInputs,
       dimension: { width: 720, height: 1280 }
     });
