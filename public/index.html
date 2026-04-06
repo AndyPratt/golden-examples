@@ -1156,67 +1156,52 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const mergedBuffer = await offlineCtx.startRendering();
         progressFill.style.width = '25%';
 
-        // Try HeyGen first, fall back to client-side if it fails
-        let videoUrl = null;
-        let usedHeyGen = false;
-
-        // Use existing talking photo ID if provided
+        // Use existing talking photo ID if provided, or create one via HeyGen
         const existingPhotoId = document.getElementById('mainTalkingPhotoId').value.trim();
-
-        try {
-          const photoAvatarId = existingPhotoId || await tryCreateTalkingPhoto(characterImageFile, statusText);
-          if (!photoAvatarId) throw new Error('Could not create talking photo');
-
-          progressFill.style.width = '35%';
-
-          statusText.textContent = 'Uploading merged audio...';
-          const wavBlob = audioBufferToWav(mergedBuffer);
-          const wavArrayBuffer = await wavBlob.arrayBuffer();
-          const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', {
-            method: 'POST',
-            body: wavArrayBuffer
-          });
-          if (!mergedUploadRes.ok) throw new Error('Audio upload failed');
-          const mergedUploadData = await mergedUploadRes.json();
-          if (!mergedUploadData.data?.url) throw new Error('No audio URL');
-
-          progressFill.style.width = '45%';
-          statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
-
-          let videoId = null;
-          for (let attempt = 0; attempt < 3; attempt++) {
-            const videoRes = await fetch('/api/heygen/generate-video', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
-            });
-            const videoData = await videoRes.json();
-            videoId = videoData.data?.video_id;
-            if (videoId) break;
-            const errMsg = JSON.stringify(videoData);
-            if (errMsg.includes('missing image dimensions') && attempt < 2) {
-              statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
-              await new Promise(r => setTimeout(r, 15000));
-              continue;
-            }
-            throw new Error(errMsg);
-          }
-
-          videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
-          usedHeyGen = true;
-        } catch (heygenErr) {
-          // HeyGen failed — fall back to client-side video generation
-          console.warn('HeyGen failed, using client-side video:', heygenErr.message);
-          statusText.textContent = 'HeyGen unavailable for this image, generating locally...';
-          progressFill.style.width = '50%';
-
-          videoUrl = await generateVideoLocally(characterImageFile, mergedBuffer, (msg) => {
-            statusText.textContent = msg;
-          });
+        const photoAvatarId = existingPhotoId || await tryCreateTalkingPhoto(characterImageFile, statusText);
+        if (!photoAvatarId) {
+          throw new Error('Could not create talking photo on HeyGen. Try pasting a Talking Photo ID from the HeyGen dashboard.');
         }
 
+        progressFill.style.width = '35%';
+
+        statusText.textContent = 'Uploading merged audio...';
+        const wavBlob = audioBufferToWav(mergedBuffer);
+        const wavArrayBuffer = await wavBlob.arrayBuffer();
+        const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', {
+          method: 'POST',
+          body: wavArrayBuffer
+        });
+        if (!mergedUploadRes.ok) throw new Error('Audio upload failed');
+        const mergedUploadData = await mergedUploadRes.json();
+        if (!mergedUploadData.data?.url) throw new Error('No audio URL');
+
+        progressFill.style.width = '45%';
+        statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
+
+        let videoId = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const videoRes = await fetch('/api/heygen/generate-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
+          });
+          const videoData = await videoRes.json();
+          videoId = videoData.data?.video_id;
+          if (videoId) break;
+          const errMsg = JSON.stringify(videoData);
+          if (errMsg.includes('missing image dimensions') && attempt < 2) {
+            statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
+            await new Promise(r => setTimeout(r, 15000));
+            continue;
+          }
+          throw new Error('Video generation failed: ' + errMsg);
+        }
+
+        const videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
+
         progressFill.style.width = '100%';
-        statusText.textContent = usedHeyGen ? 'Video ready!' : 'Video ready! (generated locally)';
+        statusText.textContent = 'Video ready!';
         btn.textContent = 'Regenerate Video';
         btn.disabled = false;
 
@@ -1702,84 +1687,67 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       progressFill.style.width = '5%';
 
       try {
-        let videoUrl = null;
-        let usedHeyGen = false;
-
-        // Use HeyGen if a talking photo ID is provided or we can create one
+        // Use HeyGen talking photo ID if provided, or create one
         const photoId = existingPhotoId || await tryCreateTalkingPhoto(uploadImageFile, statusText);
-
-        if (photoId) {
-          try {
-            // Downsample audio to 16kHz WAV
-            statusText.textContent = 'Preparing audio...';
-            progressFill.style.width = '20%';
-            const rawArrayBuf = await uploadAudioFile.arrayBuffer();
-            const decodeCtx = new AudioContext();
-            const decodedBuf = await decodeCtx.decodeAudioData(rawArrayBuf);
-            decodeCtx.close();
-            const targetRate = 16000;
-            const offCtx = new OfflineAudioContext(1, Math.ceil(decodedBuf.duration * targetRate), targetRate);
-            const src = offCtx.createBufferSource();
-            src.buffer = decodedBuf;
-            src.connect(offCtx.destination);
-            src.start(0);
-            const downsampledBuf = await offCtx.startRendering();
-            const wavBlob = audioBufferToWav(downsampledBuf);
-            const wavArrayBuf = await wavBlob.arrayBuffer();
-
-            statusText.textContent = 'Uploading audio to HeyGen...';
-            progressFill.style.width = '35%';
-            const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', { method: 'POST', body: wavArrayBuf });
-            if (!audioUploadRes.ok) throw new Error('Audio upload failed');
-            const audioUploadData = await audioUploadRes.json();
-            if (!audioUploadData.data?.url) throw new Error('No audio URL returned');
-
-            statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
-            progressFill.style.width = '50%';
-            let videoId = null;
-            for (let attempt = 0; attempt < 3; attempt++) {
-              const videoRes = await fetch('/api/heygen/generate-video', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ talkingPhotoId: photoId, mergedAudioUrl: audioUploadData.data.url })
-              });
-              const videoData = await videoRes.json();
-              videoId = videoData.data?.video_id;
-              if (videoId) break;
-              const errMsg = JSON.stringify(videoData);
-              if (errMsg.includes('missing image dimensions') && attempt < 2) {
-                statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
-                await new Promise(r => setTimeout(r, 15000));
-                continue;
-              }
-              throw new Error(errMsg);
-            }
-
-            videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
-            usedHeyGen = true;
-          } catch (heygenErr) {
-            console.warn('HeyGen video generation failed, falling back to local:', heygenErr.message);
-            statusText.textContent = 'HeyGen failed, generating locally...';
-          }
+        if (!photoId) {
+          throw new Error('Could not create talking photo on HeyGen. Try pasting a Talking Photo ID from the HeyGen dashboard.');
         }
 
-        // Fall back to client-side generation
-        if (!videoUrl) {
-          progressFill.style.width = '50%';
-          videoUrl = await generateVideoLocally(uploadImageFile, uploadAudioFile, (msg) => {
-            statusText.textContent = msg;
+        // Downsample audio to 16kHz WAV
+        statusText.textContent = 'Preparing audio...';
+        progressFill.style.width = '20%';
+        const rawArrayBuf = await uploadAudioFile.arrayBuffer();
+        const decodeCtx = new AudioContext();
+        const decodedBuf = await decodeCtx.decodeAudioData(rawArrayBuf);
+        decodeCtx.close();
+        const targetRate = 16000;
+        const offCtx = new OfflineAudioContext(1, Math.ceil(decodedBuf.duration * targetRate), targetRate);
+        const src = offCtx.createBufferSource();
+        src.buffer = decodedBuf;
+        src.connect(offCtx.destination);
+        src.start(0);
+        const downsampledBuf = await offCtx.startRendering();
+        const wavBlob = audioBufferToWav(downsampledBuf);
+        const wavArrayBuf = await wavBlob.arrayBuffer();
+
+        statusText.textContent = 'Uploading audio to HeyGen...';
+        progressFill.style.width = '35%';
+        const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', { method: 'POST', body: wavArrayBuf });
+        if (!audioUploadRes.ok) throw new Error('Audio upload failed');
+        const audioUploadData = await audioUploadRes.json();
+        if (!audioUploadData.data?.url) throw new Error('No audio URL returned');
+
+        statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
+        progressFill.style.width = '50%';
+        let videoId = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const videoRes = await fetch('/api/heygen/generate-video', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ talkingPhotoId: photoId, mergedAudioUrl: audioUploadData.data.url })
           });
+          const videoData = await videoRes.json();
+          videoId = videoData.data?.video_id;
+          if (videoId) break;
+          const errMsg = JSON.stringify(videoData);
+          if (errMsg.includes('missing image dimensions') && attempt < 2) {
+            statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
+            await new Promise(r => setTimeout(r, 15000));
+            continue;
+          }
+          throw new Error('Video generation failed: ' + errMsg);
         }
+
+        const videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
 
         progressFill.style.width = '100%';
-        statusText.textContent = usedHeyGen ? 'Video ready!' : 'Video ready! (generated locally)';
+        statusText.textContent = 'Video ready!';
         btn.textContent = 'Regenerate Video';
         btn.disabled = false;
 
-        const ext = usedHeyGen ? 'mp4' : 'webm';
         resultEl.innerHTML = `
           <video controls src="${videoUrl}" style="margin-top:16px; max-width:320px; max-height:50vh; border-radius:8px; background:#000; display:block; margin-left:auto; margin-right:auto"></video>
           <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
-            <button class="btn-small" onclick="(function(){const a=document.createElement('a');a.href='${videoUrl}';a.download='${escapeHtml(name)||'video'}.${ext}';a.click()})()">Download Video</button>
+            <button class="btn-small" onclick="fetch('${videoUrl}').then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='${escapeHtml(name)||'video'}.mp4';a.click()}).catch(()=>window.open('${videoUrl}'))">Download Video</button>
           </div>
         `;
       } catch (err) {
@@ -1791,13 +1759,14 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       }
     }
 
-    // Try to upload image to HeyGen as a talking photo, returns ID or null
+    // Try to create a HeyGen talking photo from an image file, returns ID or null
     async function tryCreateTalkingPhoto(imageFile, statusEl) {
+      const contentType = imageFile.type || 'image/png';
+      const buffer = await imageFile.arrayBuffer();
+
+      // Method 1: Direct upload to /v1/talking_photo (works for images with clear faces)
       try {
-        statusEl.textContent = 'Uploading to HeyGen...';
-        // Upload original file without JPEG conversion to preserve quality for face detection
-        const contentType = imageFile.type || 'image/png';
-        const buffer = await imageFile.arrayBuffer();
+        statusEl.textContent = 'Creating talking photo (direct upload)...';
         const res = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(contentType)}&as_talking_photo=true`, {
           method: 'POST',
           body: buffer
@@ -1805,12 +1774,40 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const data = await res.json();
         const photoId = data.data?.talking_photo_id;
         if (photoId) return photoId;
-        console.warn('HeyGen talking photo creation failed:', JSON.stringify(data));
-        return null;
+        console.warn('Direct talking photo upload failed:', JSON.stringify(data));
       } catch (err) {
-        console.warn('HeyGen upload failed:', err.message);
-        return null;
+        console.warn('Direct upload error:', err.message);
       }
+
+      // Method 2: Upload as asset, then create talking photo via API (works for non-human characters)
+      try {
+        statusEl.textContent = 'Uploading character image as asset...';
+        const uploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(contentType)}`, {
+          method: 'POST',
+          body: buffer
+        });
+        const uploadData = await uploadRes.json();
+        const imageUrl = uploadData.data?.url;
+        if (!imageUrl) {
+          console.warn('Asset upload returned no URL:', JSON.stringify(uploadData));
+          return null;
+        }
+
+        statusEl.textContent = 'Creating talking photo from uploaded image...';
+        const createRes = await fetch('/api/heygen/create-talking-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl })
+        });
+        const createData = await createRes.json();
+        const photoId = createData.data?.talking_photo_id || createData.data?.id;
+        if (photoId) return photoId;
+        console.warn('Create talking photo failed:', JSON.stringify(createData));
+      } catch (err) {
+        console.warn('Asset → talking photo error:', err.message);
+      }
+
+      return null;
     }
 
     loadVoices();
