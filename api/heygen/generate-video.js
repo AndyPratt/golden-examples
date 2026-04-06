@@ -14,7 +14,8 @@ module.exports = async function handler(req, res) {
     character: {
       type: 'talking_photo',
       talking_photo_id: talkingPhotoId,
-      talking_style: 'stable'
+      talking_style: 'stable',
+      use_avatar_iv_model: false
     },
     voice: {
       type: 'audio',
