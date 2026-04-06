@@ -1130,44 +1130,34 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
         let photoAvatarId = null;
 
-        // Try direct talking photo upload first (sets dimensions properly)
-        statusText.textContent = 'Creating talking photo...';
-        const directRes = await fetch('/api/heygen/upload?content_type=image/jpeg&as_talking_photo=true', {
+        // Always use asset upload → create-talking-photo path
+        // (direct /v1/talking_photo upload creates Avatar IV photos that fail for non-human characters)
+        statusText.textContent = 'Uploading character image...';
+        const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', {
           method: 'POST',
           body: imageBuffer
         });
-        const directData = await directRes.json();
-        photoAvatarId = directData.data?.talking_photo_id;
-
-        if (!photoAvatarId) {
-          // Fallback: upload as asset then create talking photo (for non-human images)
-          statusText.textContent = 'Uploading character image...';
-          const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', {
-            method: 'POST',
-            body: imageBuffer
-          });
-          const uploadData = await uploadRes.json();
-          const imageKey = uploadData.data?.image_key;
-          if (!imageKey) {
-            throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
-          }
-
-          statusText.textContent = 'Creating talking photo from your character image...';
-          const tpRes = await fetch('/api/heygen/create-talking-photo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ storageKey: imageKey })
-          });
-          const tpData = await tpRes.json();
-          photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
-          if (!photoAvatarId) {
-            throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
-          }
-
-          // Wait for HeyGen to process the talking photo before generating video
-          statusText.textContent = 'Waiting for talking photo to process...';
-          await new Promise(r => setTimeout(r, 15000));
+        const uploadData = await uploadRes.json();
+        const imageKey = uploadData.data?.image_key;
+        if (!imageKey) {
+          throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
         }
+
+        statusText.textContent = 'Creating talking photo from your character image...';
+        const tpRes = await fetch('/api/heygen/create-talking-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storageKey: imageKey })
+        });
+        const tpData = await tpRes.json();
+        photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
+        if (!photoAvatarId) {
+          throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
+        }
+
+        // Wait for HeyGen to process the talking photo before generating video
+        statusText.textContent = 'Waiting for talking photo to process...';
+        await new Promise(r => setTimeout(r, 15000));
 
         progressFill.style.width = '25%';
 
@@ -1654,29 +1644,25 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const imageBuffer = await jpegBlob.arrayBuffer();
 
         let photoAvatarId = null;
+
+        // Always use asset upload → create-talking-photo path
+        // (direct /v1/talking_photo creates Avatar IV photos that fail for non-human characters)
+        statusText.textContent = 'Uploading character image...';
+        const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', { method: 'POST', body: imageBuffer });
+        const uploadData = await uploadRes.json();
+        const imageKey = uploadData.data?.image_key;
+        if (!imageKey) throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
+
         statusText.textContent = 'Creating talking photo...';
-        const directRes = await fetch('/api/heygen/upload?content_type=image/jpeg&as_talking_photo=true', { method: 'POST', body: imageBuffer });
-        const directData = await directRes.json();
-        photoAvatarId = directData.data?.talking_photo_id;
-
-        if (!photoAvatarId) {
-          statusText.textContent = 'Uploading character image...';
-          const uploadRes = await fetch('/api/heygen/upload?content_type=image/jpeg', { method: 'POST', body: imageBuffer });
-          const uploadData = await uploadRes.json();
-          const imageKey = uploadData.data?.image_key;
-          if (!imageKey) throw new Error('Image upload failed: ' + JSON.stringify(uploadData));
-
-          statusText.textContent = 'Creating talking photo...';
-          const tpRes = await fetch('/api/heygen/create-talking-photo', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ storageKey: imageKey })
-          });
-          const tpData = await tpRes.json();
-          photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
-          if (!photoAvatarId) throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
-          statusText.textContent = 'Waiting for talking photo to process...';
-          await new Promise(r => setTimeout(r, 15000));
-        }
+        const tpRes = await fetch('/api/heygen/create-talking-photo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storageKey: imageKey })
+        });
+        const tpData = await tpRes.json();
+        photoAvatarId = tpData.data?.talking_photo_id || tpData.data?.id;
+        if (!photoAvatarId) throw new Error('Failed to create talking photo: ' + JSON.stringify(tpData));
+        statusText.textContent = 'Waiting for talking photo to process...';
+        await new Promise(r => setTimeout(r, 15000));
         progressFill.style.width = '30%';
 
         // Downsample uploaded audio to 16kHz WAV to keep file size small

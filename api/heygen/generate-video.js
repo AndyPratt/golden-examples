@@ -8,27 +8,42 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing talkingPhotoId or mergedAudioUrl' });
   }
 
-  // talking_style: "stable" = classic mode, works with all talking photos including non-human
-  // (default/expressive = "unlimited mode" which only works with human faces)
-  const videoInputs = [{
-    character: {
-      type: 'talking_photo',
-      talking_photo_id: talkingPhotoId,
-      talking_style: 'stable',
-      use_avatar_iv_model: false
-    },
-    voice: {
-      type: 'audio',
-      audio_url: mergedAudioUrl
-    }
-  }];
-
   try {
-    const result = await heygenRequest('/v2/video/generate', {
-      video_inputs: videoInputs,
+    // Try v1 API first — uses classic/stable mode by default, no Avatar IV
+    const v1Result = await heygenRequest('/v1/video.generate', {
+      background: '#000000',
+      clips: [{
+        avatar_id: talkingPhotoId,
+        input_audio: mergedAudioUrl,
+        scale: 1,
+        offset: { x: 0, y: 0 }
+      }],
       dimension: { width: 720, height: 1280 }
     });
-    res.json(result);
+
+    // If v1 succeeded (has video_id), return it
+    if (v1Result.data?.video_id) {
+      return res.json(v1Result);
+    }
+
+    // If v1 failed, try v2 with stable/classic mode settings
+    const v2Result = await heygenRequest('/v2/video/generate', {
+      video_inputs: [{
+        character: {
+          type: 'talking_photo',
+          talking_photo_id: talkingPhotoId,
+          talking_style: 'stable',
+          use_avatar_iv_model: false
+        },
+        voice: {
+          type: 'audio',
+          audio_url: mergedAudioUrl
+        }
+      }],
+      dimension: { width: 720, height: 1280 }
+    });
+
+    res.json(v2Result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

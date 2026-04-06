@@ -20,7 +20,7 @@ function createTalkingPhoto(storageKey) {
     const req = https.request({
       hostname: 'api.heygen.com',
       path: '/v1/talking_photo.create',
-      method: 'GET',
+      method: 'POST',
       headers: {
         'X-Api-Key': process.env.HEYGEN_API_KEY,
         'Content-Type': 'application/json',
