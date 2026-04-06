@@ -8,11 +8,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing talkingPhotoId or mergedAudioUrl' });
   }
 
-  // Use v1 API — v2 defaults to "unlimited mode" which rejects user-uploaded talking photos
+  // talking_style: "stable" = classic mode, works with all talking photos including non-human
+  // (default/expressive = "unlimited mode" which only works with human faces)
   const videoInputs = [{
     character: {
       type: 'talking_photo',
-      talking_photo_id: talkingPhotoId
+      talking_photo_id: talkingPhotoId,
+      talking_style: 'stable'
     },
     voice: {
       type: 'audio',
@@ -21,7 +23,7 @@ module.exports = async function handler(req, res) {
   }];
 
   try {
-    const result = await heygenRequest('/v1/video.generate', {
+    const result = await heygenRequest('/v2/video/generate', {
       video_inputs: videoInputs,
       dimension: { width: 720, height: 1280 }
     });
@@ -46,8 +48,13 @@ function heygenRequest(path, body) {
       const chunks = [];
       resp.on('data', c => chunks.push(c));
       resp.on('end', () => {
-        try { resolve(JSON.parse(Buffer.concat(chunks).toString())); }
-        catch { reject(new Error('Invalid response')); }
+        const raw = Buffer.concat(chunks).toString();
+        try {
+          const parsed = JSON.parse(raw);
+          resolve(parsed);
+        } catch {
+          reject(new Error(`HeyGen returned non-JSON (HTTP ${resp.statusCode}): ${raw.substring(0, 300)}`));
+        }
       });
     });
 
