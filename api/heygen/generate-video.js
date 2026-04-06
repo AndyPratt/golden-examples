@@ -12,8 +12,7 @@ module.exports = async function handler(req, res) {
   const videoInputs = [{
     character: {
       type: 'talking_photo',
-      talking_photo_id: talkingPhotoId,
-      talking_style: 'expressive'
+      talking_photo_id: talkingPhotoId
     },
     voice: {
       type: 'audio',
