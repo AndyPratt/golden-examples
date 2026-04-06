@@ -1101,50 +1101,17 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       const resultEl = document.getElementById('videoResult');
 
       btn.disabled = true;
-      btn.textContent = 'Uploading to HeyGen...';
+      btn.textContent = 'Generating...';
       progressBar.classList.add('active');
       statusText.classList.add('active');
       progressFill.style.width = '5%';
 
       try {
-        // 3a: Upload character image as asset, then create talking photo
         if (!characterImageFile) {
           throw new Error('No character image uploaded. Go back and add one.');
         }
 
-        // Convert image to JPEG for best compatibility
-        statusText.textContent = 'Preparing character image...';
-        const jpegBlob = await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Image conversion failed')), 'image/jpeg', 0.95);
-          };
-          img.onerror = () => reject(new Error('Failed to load image'));
-          img.src = URL.createObjectURL(characterImageFile);
-        });
-        const imageBuffer = await jpegBlob.arrayBuffer();
-
-        let photoAvatarId = null;
-
-        // Upload image directly as talking photo
-        statusText.textContent = 'Creating talking photo...';
-        const directRes = await fetch('/api/heygen/upload?content_type=image/jpeg&as_talking_photo=true', {
-          method: 'POST',
-          body: imageBuffer
-        });
-        const directData = await directRes.json();
-        photoAvatarId = directData.data?.talking_photo_id;
-        if (!photoAvatarId) {
-          throw new Error('Failed to create talking photo: ' + JSON.stringify(directData));
-        }
-
-        progressFill.style.width = '25%';
-
-        // 3c: Merge all audio into a single combined track (character + user)
+        // Merge all audio into a single combined track (character + user)
         statusText.textContent = 'Merging audio into single track...';
         const segmentInfo = [];
         const decodeCtx = new AudioContext();
@@ -1179,59 +1146,87 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         }
 
         const mergedBuffer = await offlineCtx.startRendering();
-        progressFill.style.width = '35%';
+        progressFill.style.width = '25%';
 
-        // Encode merged audio as WAV
-        statusText.textContent = 'Uploading merged audio...';
-        const wavBlob = audioBufferToWav(mergedBuffer);
-        const wavArrayBuffer = await wavBlob.arrayBuffer();
+        // Try HeyGen first, fall back to client-side if it fails
+        let videoUrl = null;
+        let usedHeyGen = false;
 
-        const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', {
-          method: 'POST',
-          body: wavArrayBuffer
-        });
-        if (!mergedUploadRes.ok) {
-          const errText = await mergedUploadRes.text();
-          throw new Error(`Audio upload failed (${mergedUploadRes.status}): ${errText.substring(0, 200)}`);
-        }
-        const mergedUploadData = await mergedUploadRes.json();
-        if (!mergedUploadData.data?.url) {
-          throw new Error('Merged audio upload failed: ' + JSON.stringify(mergedUploadData));
-        }
-
-        progressFill.style.width = '45%';
-
-        // 3d: Generate single seamless video (retry if talking photo still processing)
-        statusText.textContent = 'Generating video (this may take a few minutes)...';
-        progressFill.style.width = '50%';
-
-        let videoId = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const videoRes = await fetch('/api/heygen/generate-video', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
+        try {
+          statusText.textContent = 'Preparing character image...';
+          const jpegBlob = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              canvas.getContext('2d').drawImage(img, 0, 0);
+              canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Image conversion failed')), 'image/jpeg', 0.95);
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(characterImageFile);
           });
-          const videoData = await videoRes.json();
-          videoId = videoData.data?.video_id;
+          const imageBuffer = await jpegBlob.arrayBuffer();
 
-          if (videoId) break;
+          statusText.textContent = 'Creating talking photo...';
+          const directRes = await fetch('/api/heygen/upload?content_type=image/jpeg&as_talking_photo=true', {
+            method: 'POST',
+            body: imageBuffer
+          });
+          const directData = await directRes.json();
+          const photoAvatarId = directData.data?.talking_photo_id;
+          if (!photoAvatarId) throw new Error('No talking photo ID');
 
-          // If "missing image dimensions", wait and retry
-          const errMsg = JSON.stringify(videoData);
-          if (errMsg.includes('missing image dimensions') && attempt < 2) {
-            statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
-            await new Promise(r => setTimeout(r, 15000));
-            continue;
+          progressFill.style.width = '35%';
+
+          statusText.textContent = 'Uploading merged audio...';
+          const wavBlob = audioBufferToWav(mergedBuffer);
+          const wavArrayBuffer = await wavBlob.arrayBuffer();
+          const mergedUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', {
+            method: 'POST',
+            body: wavArrayBuffer
+          });
+          if (!mergedUploadRes.ok) throw new Error('Audio upload failed');
+          const mergedUploadData = await mergedUploadRes.json();
+          if (!mergedUploadData.data?.url) throw new Error('No audio URL');
+
+          progressFill.style.width = '45%';
+          statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
+
+          let videoId = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const videoRes = await fetch('/api/heygen/generate-video', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: mergedUploadData.data.url })
+            });
+            const videoData = await videoRes.json();
+            videoId = videoData.data?.video_id;
+            if (videoId) break;
+            const errMsg = JSON.stringify(videoData);
+            if (errMsg.includes('missing image dimensions') && attempt < 2) {
+              statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
+              await new Promise(r => setTimeout(r, 15000));
+              continue;
+            }
+            throw new Error(errMsg);
           }
-          throw new Error('Video generation failed: ' + errMsg);
-        }
 
-        // 3e: Poll for completion
-        const videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
+          videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
+          usedHeyGen = true;
+        } catch (heygenErr) {
+          // HeyGen failed — fall back to client-side video generation
+          console.warn('HeyGen failed, using client-side video:', heygenErr.message);
+          statusText.textContent = 'HeyGen unavailable for this image, generating locally...';
+          progressFill.style.width = '50%';
+
+          videoUrl = await generateVideoLocally(characterImageFile, mergedBuffer, (msg) => {
+            statusText.textContent = msg;
+          });
+        }
 
         progressFill.style.width = '100%';
-        statusText.textContent = 'Video ready!';
+        statusText.textContent = usedHeyGen ? 'Video ready!' : 'Video ready! (generated locally)';
         btn.textContent = 'Regenerate Video';
         btn.disabled = false;
 
@@ -1354,6 +1349,111 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       } catch {
         window.open(lastVideoUrl, '_blank');
       }
+    }
+
+    // ─── Client-side video generation (Canvas + MediaRecorder) ───
+    // Works with any image, no HeyGen needed, zero API credits
+    async function generateVideoLocally(imageSource, audioSource, onProgress) {
+      onProgress?.('Loading image...');
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = (imageSource instanceof File || imageSource instanceof Blob)
+          ? URL.createObjectURL(imageSource) : imageSource;
+      });
+
+      onProgress?.('Decoding audio...');
+      let audioBlob;
+      if (audioSource instanceof File || audioSource instanceof Blob) {
+        audioBlob = audioSource;
+      } else {
+        // audioSource is an AudioBuffer — encode to WAV
+        audioBlob = audioBufferToWav(audioSource);
+      }
+
+      const audio = new Audio();
+      audio.src = URL.createObjectURL(audioBlob);
+      audio.muted = true; // avoid echo during recording
+      await new Promise((resolve, reject) => {
+        audio.oncanplaythrough = resolve;
+        audio.onerror = reject;
+        audio.load();
+      });
+
+      onProgress?.('Generating video...');
+      const W = 720, H = 1280;
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // Audio routing: connect to MediaRecorder destination (not speakers)
+      const audioCtx = new AudioContext();
+      const srcNode = audioCtx.createMediaElementSource(audio);
+      const dest = audioCtx.createMediaStreamDestination();
+      srcNode.connect(dest);
+
+      // Combine canvas video + audio into one stream
+      const canvasStream = canvas.captureStream(30);
+      const combined = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...dest.stream.getAudioTracks()
+      ]);
+
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+        ? 'video/webm;codecs=vp9,opus'
+        : 'video/webm';
+      const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 2500000 });
+      const chunks = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+      // Calculate image placement (cover the canvas, centered)
+      const imgScale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const drawW = img.naturalWidth * imgScale;
+      const drawH = img.naturalHeight * imgScale;
+      const baseX = (W - drawW) / 2;
+      const baseY = (H - drawH) / 2;
+
+      let animationId;
+      const startTime = performance.now();
+      function draw() {
+        const t = (performance.now() - startTime) / 1000;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle breathing + bob animation
+        const breathScale = 1 + Math.sin(t * 2.0) * 0.008;
+        const bobY = Math.sin(t * 1.3) * 2;
+
+        const w = drawW * breathScale;
+        const h = drawH * breathScale;
+        const x = baseX - (w - drawW) / 2;
+        const y = baseY - (h - drawH) / 2 + bobY;
+
+        ctx.drawImage(img, x, y, w, h);
+        animationId = requestAnimationFrame(draw);
+      }
+
+      return new Promise((resolve) => {
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          resolve(URL.createObjectURL(blob));
+        };
+
+        recorder.start(100); // collect data every 100ms
+        draw();
+        audio.muted = false;
+        audio.play();
+
+        audio.onended = () => {
+          // Record one extra beat so the last frame isn't cut off
+          setTimeout(() => {
+            cancelAnimationFrame(animationId);
+            recorder.stop();
+            audioCtx.close();
+          }, 300);
+        };
+      });
     }
 
     // ─── Archive ───
@@ -1605,83 +1705,17 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       const resultEl = document.getElementById('uploadVideoResult');
 
       btn.disabled = true;
-      btn.textContent = 'Uploading to HeyGen...';
+      btn.textContent = 'Generating...';
       progressBar.classList.add('active');
       statusText.classList.add('active');
-      progressFill.style.width = '5%';
+      progressFill.style.width = '10%';
 
       try {
-        statusText.textContent = 'Preparing character image...';
-        const jpegBlob = await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Image conversion failed')), 'image/jpeg', 0.95);
-          };
-          img.onerror = () => reject(new Error('Failed to load image'));
-          img.src = URL.createObjectURL(uploadImageFile);
-        });
-        const imageBuffer = await jpegBlob.arrayBuffer();
-
-        let photoAvatarId = null;
-
-        // Upload image directly as talking photo
-        statusText.textContent = 'Creating talking photo...';
-        const directRes = await fetch('/api/heygen/upload?content_type=image/jpeg&as_talking_photo=true', { method: 'POST', body: imageBuffer });
-        const directData = await directRes.json();
-        photoAvatarId = directData.data?.talking_photo_id;
-        if (!photoAvatarId) throw new Error('Failed to create talking photo: ' + JSON.stringify(directData));
         progressFill.style.width = '30%';
+        const videoUrl = await generateVideoLocally(uploadImageFile, uploadAudioFile, (msg) => {
+          statusText.textContent = msg;
+        });
 
-        // Downsample uploaded audio to 16kHz WAV to keep file size small
-        statusText.textContent = 'Preparing audio...';
-        const rawArrayBuf = await uploadAudioFile.arrayBuffer();
-        const decodeCtx = new AudioContext();
-        const decodedBuf = await decodeCtx.decodeAudioData(rawArrayBuf);
-        decodeCtx.close();
-        const targetRate = 16000;
-        const offCtx = new OfflineAudioContext(1, Math.ceil(decodedBuf.duration * targetRate), targetRate);
-        const src = offCtx.createBufferSource();
-        src.buffer = decodedBuf;
-        src.connect(offCtx.destination);
-        src.start(0);
-        const downsampledBuf = await offCtx.startRendering();
-        const wavBlob = audioBufferToWav(downsampledBuf);
-        const wavArrayBuf = await wavBlob.arrayBuffer();
-
-        statusText.textContent = 'Uploading audio...';
-        const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', { method: 'POST', body: wavArrayBuf });
-        if (!audioUploadRes.ok) {
-          const errText = await audioUploadRes.text();
-          throw new Error(`Audio upload failed (${audioUploadRes.status}): ${errText.substring(0, 200)}`);
-        }
-        const audioUploadData = await audioUploadRes.json();
-        if (!audioUploadData.data?.url) throw new Error('Audio upload failed: ' + JSON.stringify(audioUploadData));
-        progressFill.style.width = '50%';
-
-        statusText.textContent = 'Generating video (this may take a few minutes)...';
-        let videoId = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const videoRes = await fetch('/api/heygen/generate-video', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ talkingPhotoId: photoAvatarId, mergedAudioUrl: audioUploadData.data.url })
-          });
-          const videoData = await videoRes.json();
-          videoId = videoData.data?.video_id;
-          if (videoId) break;
-          const errMsg = JSON.stringify(videoData);
-          if (errMsg.includes('missing image dimensions') && attempt < 2) {
-            statusText.textContent = `Waiting for photo to process (attempt ${attempt + 2}/3)...`;
-            await new Promise(r => setTimeout(r, 15000));
-            continue;
-          }
-          throw new Error('Video generation failed: ' + errMsg);
-        }
-
-        const videoUrl = await pollVideoStatus(videoId, progressFill, statusText);
         progressFill.style.width = '100%';
         statusText.textContent = 'Video ready!';
         btn.textContent = 'Regenerate Video';
@@ -1690,7 +1724,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         resultEl.innerHTML = `
           <video controls src="${videoUrl}" style="margin-top:16px; max-width:320px; max-height:50vh; border-radius:8px; background:#000; display:block; margin-left:auto; margin-right:auto"></video>
           <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
-            <button class="btn-small" onclick="fetch('${videoUrl}').then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='${escapeHtml(name)||'video'}.mp4';a.click()}).catch(()=>window.open('${videoUrl}'))">Download Video</button>
+            <button class="btn-small" onclick="(function(){const a=document.createElement('a');a.href='${videoUrl}';a.download='${escapeHtml(name)||'video'}.webm';a.click()})()">Download Video</button>
           </div>
         `;
       } catch (err) {
