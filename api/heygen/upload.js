@@ -1,6 +1,6 @@
 const https = require('https');
 
-async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const contentType = req.query.content_type || 'image/png';
@@ -22,7 +22,7 @@ async function handler(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};
 
 function heygenUpload(buffer, contentType, path) {
   return new Promise((resolve, reject) => {
@@ -50,11 +50,3 @@ function heygenUpload(buffer, contentType, path) {
     req.end();
   });
 }
-
-module.exports = handler;
-
-module.exports.config = {
-  api: {
-    bodyParser: false
-  }
-};
