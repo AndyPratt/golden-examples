@@ -1292,10 +1292,22 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
     async function pollVideoStatus(videoId, progressFill, statusText) {
       let progress = 55;
+      const maxWait = 10 * 60 * 1000; // 10 minutes
+      const start = Date.now();
       while (true) {
         await new Promise(r => setTimeout(r, 5000));
-        const res = await fetch(`/api/heygen/video-status?video_id=${videoId}`);
-        const data = await res.json();
+        if (Date.now() - start > maxWait) {
+          throw new Error('Video generation timed out after 10 minutes. Video ID: ' + videoId);
+        }
+        let data;
+        try {
+          const res = await fetch(`/api/heygen/video-status?video_id=${videoId}`);
+          data = await res.json();
+        } catch (fetchErr) {
+          // Network blip — keep polling
+          statusText.textContent = 'Connection issue, retrying...';
+          continue;
+        }
         const status = data.data?.status;
 
         if (status === 'completed') return data.data.video_url;
@@ -1667,11 +1679,28 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         }
         progressFill.style.width = '30%';
 
+        // Downsample uploaded audio to 16kHz WAV to keep file size small
+        statusText.textContent = 'Preparing audio...';
+        const rawArrayBuf = await uploadAudioFile.arrayBuffer();
+        const decodeCtx = new AudioContext();
+        const decodedBuf = await decodeCtx.decodeAudioData(rawArrayBuf);
+        decodeCtx.close();
+        const targetRate = 16000;
+        const offCtx = new OfflineAudioContext(1, Math.ceil(decodedBuf.duration * targetRate), targetRate);
+        const src = offCtx.createBufferSource();
+        src.buffer = decodedBuf;
+        src.connect(offCtx.destination);
+        src.start(0);
+        const downsampledBuf = await offCtx.startRendering();
+        const wavBlob = audioBufferToWav(downsampledBuf);
+        const wavArrayBuf = await wavBlob.arrayBuffer();
+
         statusText.textContent = 'Uploading audio...';
-        const audioBuffer = await uploadAudioFile.arrayBuffer();
-        const contentType = uploadAudioFile.type || 'audio/wav';
-        const audioUploadRes = await fetch(`/api/heygen/upload?content_type=${encodeURIComponent(contentType)}`, { method: 'POST', body: audioBuffer });
-        if (!audioUploadRes.ok) throw new Error(`Audio upload failed (${audioUploadRes.status})`);
+        const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', { method: 'POST', body: wavArrayBuf });
+        if (!audioUploadRes.ok) {
+          const errText = await audioUploadRes.text();
+          throw new Error(`Audio upload failed (${audioUploadRes.status}): ${errText.substring(0, 200)}`);
+        }
         const audioUploadData = await audioUploadRes.json();
         if (!audioUploadData.data?.url) throw new Error('Audio upload failed: ' + JSON.stringify(audioUploadData));
         progressFill.style.width = '50%';

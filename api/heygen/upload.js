@@ -1,6 +1,6 @@
 const https = require('https');
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const contentType = req.query.content_type || 'image/png';
@@ -10,6 +10,10 @@ module.exports = async function handler(req, res) {
   for await (const chunk of req) chunks.push(chunk);
   const buffer = Buffer.concat(chunks);
 
+  if (buffer.length === 0) {
+    return res.status(400).json({ error: 'Empty body — file may have been too large or not sent correctly' });
+  }
+
   try {
     const asTalkingPhoto = req.query.as_talking_photo === 'true';
     const uploadPath = asTalkingPhoto ? '/v1/talking_photo' : '/v1/asset';
@@ -18,7 +22,7 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};
+}
 
 function heygenUpload(buffer, contentType, path) {
   return new Promise((resolve, reject) => {
@@ -46,3 +50,13 @@ function heygenUpload(buffer, contentType, path) {
     req.end();
   });
 }
+
+module.exports = handler;
+
+module.exports.config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb'
+    }
+  }
+};

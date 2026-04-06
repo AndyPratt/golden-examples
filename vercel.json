@@ -2,6 +2,10 @@
   "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
+    "api/heygen/upload.js": {
+      "maxDuration": 60,
+      "memory": 512
+    },
     "api/**/*.js": {
       "maxDuration": 60
     }
