@@ -9,23 +9,20 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // v2 API with stable/classic mode settings
+    // Send bare minimum — no talking_style, no dimension, no use_avatar_iv_model
+    // HeyGen's renderer ignores talking_style parameters anyway
     const result = await heygenRequest('/v2/video/generate', {
       video_inputs: [{
         character: {
           type: 'talking_photo',
-          talking_photo_id: talkingPhotoId,
-          talking_style: 'stable',
-          use_avatar_iv_model: false
+          talking_photo_id: talkingPhotoId
         },
         voice: {
           type: 'audio',
           audio_url: mergedAudioUrl
         }
-      }],
-      dimension: { width: 720, height: 1280 }
+      }]
     });
-
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
