@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
     const result = await heygenUpload(buffer, contentType, uploadPath);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, bufferSize: buffer.length, contentType, path: req.query.as_talking_photo === 'true' ? '/v1/talking_photo' : '/v1/asset' });
   }
 };
 

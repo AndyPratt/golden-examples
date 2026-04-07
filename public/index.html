@@ -1172,9 +1172,12 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           method: 'POST',
           body: wavArrayBuffer
         });
-        if (!mergedUploadRes.ok) throw new Error('Audio upload failed');
+        if (!mergedUploadRes.ok) {
+          const errText = await mergedUploadRes.text();
+          throw new Error(`Audio upload failed (HTTP ${mergedUploadRes.status}): ${errText.substring(0, 300)}`);
+        }
         const mergedUploadData = await mergedUploadRes.json();
-        if (!mergedUploadData.data?.url) throw new Error('No audio URL');
+        if (!mergedUploadData.data?.url) throw new Error('Audio upload returned no URL: ' + JSON.stringify(mergedUploadData));
 
         progressFill.style.width = '45%';
         statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
@@ -1710,12 +1713,15 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         const wavBlob = audioBufferToWav(downsampledBuf);
         const wavArrayBuf = await wavBlob.arrayBuffer();
 
-        statusText.textContent = 'Uploading audio to HeyGen...';
+        statusText.textContent = `Uploading audio to HeyGen (${(wavArrayBuf.byteLength / 1024).toFixed(0)} KB)...`;
         progressFill.style.width = '35%';
         const audioUploadRes = await fetch('/api/heygen/upload?content_type=audio%2Fx-wav', { method: 'POST', body: wavArrayBuf });
-        if (!audioUploadRes.ok) throw new Error('Audio upload failed');
+        if (!audioUploadRes.ok) {
+          const errText = await audioUploadRes.text();
+          throw new Error(`Audio upload failed (HTTP ${audioUploadRes.status}): ${errText.substring(0, 300)}`);
+        }
         const audioUploadData = await audioUploadRes.json();
-        if (!audioUploadData.data?.url) throw new Error('No audio URL returned');
+        if (!audioUploadData.data?.url) throw new Error('Audio upload returned no URL: ' + JSON.stringify(audioUploadData));
 
         statusText.textContent = 'Generating video via HeyGen (this may take a few minutes)...';
         progressFill.style.width = '50%';
