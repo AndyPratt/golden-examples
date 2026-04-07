@@ -1737,7 +1737,8 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
     })();
 
     async function generateVideoFromUpload() {
-      if (!uploadImageFile) { alert('Please upload a character image'); return; }
+      const hasPhotoId = document.getElementById('uploadTalkingPhotoId').value.trim().length > 0;
+      if (!uploadImageFile && !hasPhotoId) { alert('Please upload a character image or enter a Talking Photo ID'); return; }
       if (!uploadAudioFile) { alert('Please upload an audio file'); return; }
 
       const name = document.getElementById('projectName').value.trim();
@@ -1756,7 +1757,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
 
       try {
         // Use HeyGen talking photo ID if provided, or create one
-        const photoId = existingPhotoId || await tryCreateTalkingPhoto(uploadImageFile, statusText);
+        const photoId = existingPhotoId || (uploadImageFile && await tryCreateTalkingPhoto(uploadImageFile, statusText));
         if (!photoId) {
           throw new Error('Could not create talking photo on HeyGen. Try pasting a Talking Photo ID from the HeyGen dashboard.');
         }
