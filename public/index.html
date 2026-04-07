@@ -1141,7 +1141,9 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         }
 
         // Merge ALL lines (character + user) into a single buffer
-        const sampleRate = 16000;
+        // Choose sample rate to keep WAV under 4MB (mono 16-bit = 2 bytes/sample)
+        const maxBytes = 4 * 1024 * 1024;
+        const sampleRate = Math.max(8000, Math.min(16000, Math.floor(maxBytes / (totalDuration * 2))));
         const totalSamples = Math.ceil(totalDuration * sampleRate);
         const offlineCtx = new OfflineAudioContext(1, totalSamples, sampleRate);
 
@@ -1696,15 +1698,18 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
           throw new Error('Could not create talking photo on HeyGen. Try pasting a Talking Photo ID from the HeyGen dashboard.');
         }
 
-        // Downsample audio to 16kHz WAV
+        // Downsample audio to fit under Vercel's 4.5MB body limit
         statusText.textContent = 'Preparing audio...';
         progressFill.style.width = '20%';
         const rawArrayBuf = await uploadAudioFile.arrayBuffer();
         const decodeCtx = new AudioContext();
         const decodedBuf = await decodeCtx.decodeAudioData(rawArrayBuf);
         decodeCtx.close();
-        const targetRate = 16000;
-        const offCtx = new OfflineAudioContext(1, Math.ceil(decodedBuf.duration * targetRate), targetRate);
+        // Choose sample rate to keep WAV under 4MB (mono 16-bit = 2 bytes/sample)
+        const maxBytes = 4 * 1024 * 1024;
+        const targetRate = Math.min(16000, Math.floor(maxBytes / (decodedBuf.duration * 2)));
+        const clampedRate = Math.max(8000, targetRate);
+        const offCtx = new OfflineAudioContext(1, Math.ceil(decodedBuf.duration * clampedRate), clampedRate);
         const src = offCtx.createBufferSource();
         src.buffer = decodedBuf;
         src.connect(offCtx.destination);
