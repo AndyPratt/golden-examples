@@ -416,7 +416,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         </div>
         <div class="form-group" style="margin-bottom:16px">
           <label>HeyGen Talking Photo ID <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional — paste from HeyGen dashboard to skip upload)</span></label>
-          <input type="text" id="uploadTalkingPhotoId" placeholder="e.g. abc123-def456-...">
+          <input type="text" id="uploadTalkingPhotoId" placeholder="Paste ID or HeyGen URL">
         </div>
         <button class="btn btn-generate" id="uploadVideoBtn" onclick="generateVideoFromUpload()">Generate Video from Audio</button>
         <div class="progress-bar" id="uploadVideoProgressBar"><div class="progress-fill" id="uploadVideoProgressFill"></div></div>
@@ -440,7 +440,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         </div>
         <div class="form-group" style="margin-top:12px">
           <label>HeyGen Talking Photo ID <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional — paste from HeyGen to skip image upload)</span></label>
-          <input type="text" id="mainTalkingPhotoId" placeholder="e.g. abc123-def456-...">
+          <input type="text" id="mainTalkingPhotoId" placeholder="Paste ID or HeyGen URL">
         </div>
       </div>
 
@@ -900,6 +900,23 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       return div.innerHTML;
     }
 
+    // Extract talking photo ID from raw ID or HeyGen URL
+    function parseTalkingPhotoId(input) {
+      if (!input) return '';
+      // If it's a URL, extract groupId parameter
+      if (input.includes('heygen.com')) {
+        try {
+          const url = new URL(input);
+          const groupId = url.searchParams.get('groupId');
+          if (groupId) return groupId;
+        } catch {}
+        // Try to extract hex ID from URL path
+        const match = input.match(/([a-f0-9]{32})/i);
+        if (match) return match[1];
+      }
+      return input;
+    }
+
     function playLine(index) {
       if (currentAudio) {
         currentAudio.pause();
@@ -1159,7 +1176,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
         progressFill.style.width = '25%';
 
         // Use existing talking photo ID if provided, or create one via HeyGen
-        const existingPhotoId = document.getElementById('mainTalkingPhotoId').value.trim();
+        const existingPhotoId = parseTalkingPhotoId(document.getElementById('mainTalkingPhotoId').value.trim());
         const photoAvatarId = existingPhotoId || await tryCreateTalkingPhoto(characterImageFile, statusText);
         if (!photoAvatarId) {
           throw new Error('Could not create talking photo on HeyGen. Try pasting a Talking Photo ID from the HeyGen dashboard.');
@@ -1678,7 +1695,7 @@ CHARACTER: Oh, I love sunny windowsills, tuna treats, and long naps!"></textarea
       if (!uploadAudioFile) { alert('Please upload an audio file'); return; }
 
       const name = document.getElementById('projectName').value.trim();
-      const existingPhotoId = document.getElementById('uploadTalkingPhotoId').value.trim();
+      const existingPhotoId = parseTalkingPhotoId(document.getElementById('uploadTalkingPhotoId').value.trim());
       const btn = document.getElementById('uploadVideoBtn');
       const progressBar = document.getElementById('uploadVideoProgressBar');
       const progressFill = document.getElementById('uploadVideoProgressFill');

@@ -9,25 +9,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Try v1 API first — uses classic/stable mode by default, no Avatar IV
-    const v1Result = await heygenRequest('/v1/video.generate', {
-      background: '#000000',
-      clips: [{
-        avatar_id: talkingPhotoId,
-        input_audio: mergedAudioUrl,
-        scale: 1,
-        offset: { x: 0, y: 0 }
-      }],
-      dimension: { width: 720, height: 1280 }
-    });
-
-    // If v1 succeeded (has video_id), return it
-    if (v1Result.data?.video_id) {
-      return res.json(v1Result);
-    }
-
-    // If v1 failed, try v2 with stable/classic mode settings
-    const v2Result = await heygenRequest('/v2/video/generate', {
+    // v2 API with stable/classic mode settings
+    const result = await heygenRequest('/v2/video/generate', {
       video_inputs: [{
         character: {
           type: 'talking_photo',
@@ -43,7 +26,7 @@ module.exports = async function handler(req, res) {
       dimension: { width: 720, height: 1280 }
     });
 
-    res.json(v2Result);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
